@@ -38,7 +38,7 @@ public class MachineController {
         boolean effectiveActiveOnly = isSupervisor ? activeOnly : true;
 
         MachineListResponse response = machineService.listMachines(
-                effectiveActiveOnly, cursor, limit, isSupervisor);
+                effectiveActiveOnly, cursor, limit);
         return ResponseEntity.ok(response);
     }
 }

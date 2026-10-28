@@ -5,8 +5,10 @@ import com.example.contract.Machine;
 import com.example.contract.MachineListResponse;
 import com.example.domain.MachineEntity;
 import com.example.domain.MachineRepository;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.Base64;
 import java.util.List;
@@ -22,7 +24,7 @@ public class MachineService {
     }
 
     @Transactional(readOnly = true)
-    public MachineListResponse listMachines(boolean activeOnly, String cursorParam, int limit, boolean isSupervisor) {
+    public MachineListResponse listMachines(boolean activeOnly, String cursorParam, int limit) {
         UUID cursorUuid = decodeCursor(cursorParam);
         int fetchSize = limit + 1;
 
@@ -45,8 +47,12 @@ public class MachineService {
         if (cursor == null || cursor.isBlank()) {
             return null;
         }
-        String decoded = new String(Base64.getDecoder().decode(cursor));
-        return UUID.fromString(decoded);
+        try {
+            String decoded = new String(Base64.getDecoder().decode(cursor));
+            return UUID.fromString(decoded);
+        } catch (IllegalArgumentException e) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid cursor");
+        }
     }
 
     private String encodeCursor(UUID machineId) {

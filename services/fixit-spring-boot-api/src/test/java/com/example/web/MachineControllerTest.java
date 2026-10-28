@@ -59,7 +59,7 @@ class MachineControllerTest {
     void getAsOperator_defaultParams_returnsOnlyActiveMachines() throws Exception {
         Machine m1 = activeMachine("Press A");
         MachineListResponse response = new MachineListResponse(List.of(m1), new CursorPage(50L, null));
-        when(machineService.listMachines(eq(true), isNull(), eq(50), eq(false)))
+        when(machineService.listMachines(eq(true), isNull(), eq(50)))
                 .thenReturn(response);
 
         mvc.perform(get("/machines")
@@ -77,7 +77,7 @@ class MachineControllerTest {
         Machine m1 = activeMachine("Lathe B");
         MachineListResponse response = new MachineListResponse(List.of(m1), new CursorPage(50L, null));
         // Operator passes activeOnly=false but service is called with activeOnly=true because role enforcement
-        when(machineService.listMachines(eq(true), isNull(), eq(50), eq(false)))
+        when(machineService.listMachines(eq(true), isNull(), eq(50)))
                 .thenReturn(response);
 
         mvc.perform(get("/machines?activeOnly=false")
@@ -93,7 +93,7 @@ class MachineControllerTest {
         Machine active = activeMachine("Press A");
         Machine inactive = inactiveMachine("Old Drill");
         MachineListResponse response = new MachineListResponse(List.of(active, inactive), new CursorPage(50L, null));
-        when(machineService.listMachines(eq(false), isNull(), eq(50), eq(true)))
+        when(machineService.listMachines(eq(false), isNull(), eq(50)))
                 .thenReturn(response);
 
         mvc.perform(get("/machines?activeOnly=false")
@@ -110,7 +110,7 @@ class MachineControllerTest {
         Machine m2 = activeMachine("M2");
         String encodedCursor = "dGVzdC1jdXJzb3I="; // base64("test-cursor")
         MachineListResponse response = new MachineListResponse(List.of(m1, m2), new CursorPage(2L, encodedCursor));
-        when(machineService.listMachines(eq(true), isNull(), eq(2), eq(false)))
+        when(machineService.listMachines(eq(true), isNull(), eq(2)))
                 .thenReturn(response);
 
         mvc.perform(get("/machines?limit=2")
@@ -126,7 +126,7 @@ class MachineControllerTest {
         Machine m3 = activeMachine("M3");
         String cursor = "dGVzdC1jdXJzb3I=";
         MachineListResponse response = new MachineListResponse(List.of(m3), new CursorPage(2L, null));
-        when(machineService.listMachines(eq(true), eq(cursor), eq(2), eq(false)))
+        when(machineService.listMachines(eq(true), eq(cursor), eq(2)))
                 .thenReturn(response);
 
         mvc.perform(get("/machines?limit=2&cursor=" + cursor)
