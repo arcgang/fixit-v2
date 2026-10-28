@@ -2,9 +2,9 @@ package com.example.service;
 
 import com.example.contract.*;
 import com.example.domain.*;
-import com.example.web.MachineNotFoundOrInactiveException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -48,20 +48,36 @@ public class RequestService {
         int slaThresholdMinutes = slaThresholdFor(priority);
         Instant slaDeadlineAt = now.plusSeconds((long) slaThresholdMinutes * 60);
         UUID requestId = UUID.randomUUID();
-        String referenceNumber = generateReferenceNumber(now);
 
-        MaintenanceRequestEntity entity = MaintenanceRequestEntity.create(
-            requestId, machine, description, priority,
-            actorUserId, actorDisplayName,
-            now, slaDeadlineAt, referenceNumber
-        );
-        requestRepository.save(entity);
+        String dateStr = DATE_FMT.format(LocalDate.ofInstant(now, ZoneOffset.UTC));
+        String prefix = "REQ-" + dateStr + "-";
+        long seqSeed = requestRepository.countByReferencePrefixLike(prefix);
+
+        MaintenanceRequestEntity entity = null;
+        for (int attempt = 0; attempt < 10; attempt++) {
+            String referenceNumber = prefix + String.format("%04d", seqSeed + attempt + 1);
+            entity = MaintenanceRequestEntity.create(
+                requestId, machine, description, priority,
+                actorUserId, actorDisplayName,
+                now, slaDeadlineAt, referenceNumber
+            );
+            try {
+                requestRepository.saveAndFlush(entity);
+                break;
+            } catch (DataIntegrityViolationException e) {
+                entity = null;
+                requestId = UUID.randomUUID();
+            }
+        }
+        if (entity == null) {
+            throw new IllegalStateException("Failed to generate unique reference number after retries");
+        }
 
         SlaRecordEntity slaRecord = SlaRecordEntity.create(entity, priority, slaThresholdMinutes, slaDeadlineAt, now);
         slaRecordRepository.save(slaRecord);
 
         log.info("action=REQUEST_CREATED request_id={} actor={} priority={} outcome=SUCCESS",
-            requestId, actorUserId, priority);
+            entity.getRequestId(), actorUserId, priority);
 
         return toDto(entity, machine);
     }
@@ -72,13 +88,6 @@ public class RequestService {
             case MEDIUM -> 240;
             case LOW -> 480;
         };
-    }
-
-    private String generateReferenceNumber(Instant now) {
-        String dateStr = DATE_FMT.format(LocalDate.ofInstant(now, ZoneOffset.UTC));
-        String prefix = "REQ-" + dateStr + "-";
-        long count = requestRepository.countByReferencePrefixLike(prefix);
-        return prefix + String.format("%04d", count + 1);
     }
 
     private MaintenanceRequest toDto(MaintenanceRequestEntity e, MachineEntity machine) {

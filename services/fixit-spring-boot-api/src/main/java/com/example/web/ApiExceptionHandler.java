@@ -2,6 +2,7 @@
 package com.example.web;
 
 import com.example.contract.ErrorBody;
+import com.example.domain.MachineNotFoundOrInactiveException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;

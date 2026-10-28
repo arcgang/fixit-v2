@@ -1,6 +1,7 @@
 package com.example.web;
 
 import com.example.contract.Priority;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -12,10 +13,13 @@ import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.Map;
 import java.util.UUID;
 
 import static org.hamcrest.Matchers.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -62,7 +66,7 @@ class RequestControllerTest {
             "priority", "CRITICAL"
         );
 
-        mockMvc.perform(post("/api/v1/requests")
+        mockMvc.perform(post("/requests")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(body)))
             .andExpect(status().isCreated())
@@ -86,7 +90,7 @@ class RequestControllerTest {
             "priority", "MEDIUM"
         );
 
-        mockMvc.perform(post("/api/v1/requests")
+        mockMvc.perform(post("/requests")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(body)))
             .andExpect(status().isUnprocessableEntity())
@@ -105,7 +109,7 @@ class RequestControllerTest {
             "priority", "LOW"
         );
 
-        mockMvc.perform(post("/api/v1/requests")
+        mockMvc.perform(post("/requests")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(body)))
             .andExpect(status().isUnprocessableEntity())
@@ -122,7 +126,7 @@ class RequestControllerTest {
             "priority", "CRITICAL"
         );
 
-        mockMvc.perform(post("/api/v1/requests")
+        mockMvc.perform(post("/requests")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(body)))
             .andExpect(status().isBadRequest())
@@ -138,7 +142,7 @@ class RequestControllerTest {
             "priority", "MEDIUM"
         );
 
-        mockMvc.perform(post("/api/v1/requests")
+        mockMvc.perform(post("/requests")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(body)))
             .andExpect(status().isBadRequest())
@@ -156,7 +160,7 @@ class RequestControllerTest {
             "description", "Some fault"
         );
 
-        mockMvc.perform(post("/api/v1/requests")
+        mockMvc.perform(post("/requests")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(body)))
             .andExpect(status().isBadRequest())
@@ -172,7 +176,7 @@ class RequestControllerTest {
             "priority", "LOW"
         );
 
-        mockMvc.perform(post("/api/v1/requests")
+        mockMvc.perform(post("/requests")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(body)))
             .andExpect(status().isUnauthorized());
@@ -189,7 +193,7 @@ class RequestControllerTest {
             "priority", "LOW"
         );
 
-        mockMvc.perform(post("/api/v1/requests")
+        mockMvc.perform(post("/requests")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(body)))
             .andExpect(status().isForbidden());
@@ -206,10 +210,16 @@ class RequestControllerTest {
             "priority", "CRITICAL"
         );
 
-        mockMvc.perform(post("/api/v1/requests")
+        String responseBody = mockMvc.perform(post("/requests")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(body)))
             .andExpect(status().isCreated())
-            .andExpect(jsonPath("$.slaDeadlineAt").isNotEmpty());
+            .andReturn().getResponse().getContentAsString();
+
+        JsonNode json = objectMapper.readTree(responseBody);
+        Instant createdAt = Instant.parse(json.get("createdAt").asText());
+        Instant slaDeadlineAt = Instant.parse(json.get("slaDeadlineAt").asText());
+        long diffMinutes = ChronoUnit.MINUTES.between(createdAt, slaDeadlineAt);
+        assertEquals(60L, diffMinutes, "slaDeadlineAt must be exactly 60 minutes after createdAt for CRITICAL priority");
     }
 }

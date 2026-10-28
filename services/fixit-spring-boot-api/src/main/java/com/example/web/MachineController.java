@@ -11,7 +11,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/api/v1/machines")
+@RequestMapping("/machines")
 public class MachineController {
 
     private final MachineService machineService;

@@ -8,7 +8,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.annotation.Secured;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.ArrayList;
@@ -17,7 +16,7 @@ import java.util.Map;
 import java.util.UUID;
 
 @RestController
-@RequestMapping("/api/v1/requests")
+@RequestMapping("/requests")
 public class RequestController {
 
     private final RequestService requestService;
@@ -66,8 +65,7 @@ public class RequestController {
     }
 
     private UUID extractUserId(Authentication authentication) {
-        if (authentication == null) return UUID.fromString("00000000-0000-0000-0000-000000000000");
-        // In production this comes from JWT sub claim; in tests it's the mock username
+        if (authentication == null) throw new IllegalStateException("Authentication must not be null on a secured endpoint");
         try {
             return UUID.fromString(authentication.getName());
         } catch (IllegalArgumentException e) {
@@ -76,7 +74,7 @@ public class RequestController {
     }
 
     private String extractDisplayName(Authentication authentication) {
-        if (authentication == null) return "unknown";
+        if (authentication == null) throw new IllegalStateException("Authentication must not be null on a secured endpoint");
         return authentication.getName();
     }
 }

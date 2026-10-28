@@ -28,8 +28,9 @@ public class SlaRecordEntity {
     @Column(name = "sla_deadline_at", nullable = false)
     private Instant slaDeadlineAt;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "sla_clock_mode", nullable = false)
-    private String slaClockMode;
+    private SlaClockMode slaClockMode;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "sla_outcome")
@@ -61,7 +62,7 @@ public class SlaRecordEntity {
         e.priority = priority;
         e.slaThresholdMinutes = slaThresholdMinutes;
         e.slaDeadlineAt = slaDeadlineAt;
-        e.slaClockMode = "CONTINUOUS";
+        e.slaClockMode = SlaClockMode.CONTINUOUS;
         e.createdAt = now;
         e.updatedAt = now;
         return e;
@@ -72,7 +73,7 @@ public class SlaRecordEntity {
     public Priority getPriority() { return priority; }
     public int getSlaThresholdMinutes() { return slaThresholdMinutes; }
     public Instant getSlaDeadlineAt() { return slaDeadlineAt; }
-    public String getSlaClockMode() { return slaClockMode; }
+    public SlaClockMode getSlaClockMode() { return slaClockMode; }
     public SlaOutcome getSlaOutcome() { return slaOutcome; }
     public Integer getBreachDurationMinutes() { return breachDurationMinutes; }
     public Instant getEvaluatedAt() { return evaluatedAt; }
