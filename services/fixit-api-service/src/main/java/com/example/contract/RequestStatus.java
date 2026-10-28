@@ -5,7 +5,7 @@ package com.example.contract;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 public enum RequestStatus {
-  @JsonProperty("Open") OPEN,
-  @JsonProperty("In Progress") IN_PROGRESS,
-  @JsonProperty("Resolved") RESOLVED
+  @JsonProperty("OPEN") OPEN,
+  @JsonProperty("IN_PROGRESS") IN_PROGRESS,
+  @JsonProperty("RESOLVED") RESOLVED
 }

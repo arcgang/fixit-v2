@@ -3,13 +3,15 @@
 package com.example.contract;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import java.time.Instant;
 import java.util.List;
 
 public record DashboardSummary(
-    @JsonProperty("openCount") Long openCount,
-    @JsonProperty("resolvedCount") Long resolvedCount,
-    @JsonProperty("recentRequests") List<MaintenanceRequest> recentRequests,
-    @JsonProperty("slaAtRiskCount") Long slaAtRiskCount,
-    @JsonProperty("inProgressCount") Long inProgressCount,
-    @JsonProperty("slaBreachedCount") Long slaBreachedCount
+    @JsonProperty("id") String id,
+    @JsonProperty("uid") String uid,
+    @JsonProperty("url") String url,
+    @JsonProperty("tags") List<String> tags,
+    @JsonProperty("title") String title,
+    @JsonProperty("created_at") Instant createdAt,
+    @JsonProperty("updated_at") Instant updatedAt
 ) {}

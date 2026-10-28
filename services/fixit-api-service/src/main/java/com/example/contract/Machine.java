@@ -8,7 +8,7 @@ import java.util.UUID;
 
 public record Machine(
     @JsonProperty("name") String name,
-    @JsonProperty("active") Boolean active,
+    @JsonProperty("isActive") Boolean isActive,
     @JsonProperty("location") String location,
     @JsonProperty("createdAt") Instant createdAt,
     @JsonProperty("machineId") UUID machineId,

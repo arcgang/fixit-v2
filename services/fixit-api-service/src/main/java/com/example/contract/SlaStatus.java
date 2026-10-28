@@ -5,9 +5,8 @@ package com.example.contract;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 public enum SlaStatus {
-  @JsonProperty("ok") OK,
-  @JsonProperty("at_risk") AT_RISK,
-  @JsonProperty("breached") BREACHED,
-  @JsonProperty("resolved_within_sla") RESOLVED_WITHIN_SLA,
-  @JsonProperty("resolved_breached") RESOLVED_BREACHED
+  @JsonProperty("ON_TRACK") ON_TRACK,
+  @JsonProperty("AT_RISK") AT_RISK,
+  @JsonProperty("BREACHED") BREACHED,
+  @JsonProperty("MET") MET
 }

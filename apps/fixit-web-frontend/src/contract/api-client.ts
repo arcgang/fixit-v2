@@ -26,48 +26,56 @@ export function createClient(opts: ClientOptions = {}) {
     return data as R;
   }
   return {
-  /** GET /config/sla */
-  getSlaConfig: () => request<T.SlaConfigListResponse>("GET", `/config/sla`, undefined),
-  /** PUT /config/sla */
-  updateSlaConfig: (body: T.SlaConfigUpdateRequest) => request<T.SlaConfig>("PUT", `/config/sla`, undefined, body),
+  /** GET /api/v1/alerts */
+  listAlerts: (query: { "cursor"?: string | number | boolean; "limit"?: string | number | boolean; "state"?: string | number | boolean } = {}) => request<T.AlertListResponse>("GET", `/api/v1/alerts`, query),
+  /** POST /api/v1/alerts/webhook */
+  receiveAlertWebhook: (body: T.AlertWebhookPayload) => request<void>("POST", `/api/v1/alerts/webhook`, undefined, body),
+  /** GET /api/v1/alerts/{alertId} */
+  getAlert: (alertId: string) => request<T.AlertRecord>("GET", `/api/v1/alerts/${encodeURIComponent(alertId)}`, undefined),
+  /** GET /api/v1/dashboards */
+  listDashboards: (query: { "cursor"?: string | number | boolean; "limit"?: string | number | boolean } = {}) => request<T.DashboardListResponse>("GET", `/api/v1/dashboards`, query),
+  /** GET /api/v1/dashboards/{dashboardId} */
+  getDashboard: (dashboardId: string) => request<T.DashboardDetail>("GET", `/api/v1/dashboards/${encodeURIComponent(dashboardId)}`, undefined),
+  /** GET /api/v1/scrape-targets */
+  listScrapeTargets: (query: { "cursor"?: string | number | boolean; "limit"?: string | number | boolean } = {}) => request<T.ScrapeTargetListResponse>("GET", `/api/v1/scrape-targets`, query),
+  /** GET /api/v1/slo */
+  listSloStatus: (query: { "cursor"?: string | number | boolean; "limit"?: string | number | boolean } = {}) => request<T.SloListResponse>("GET", `/api/v1/slo`, query),
+  /** GET /api/v1/slo/{sloId} */
+  getSloStatus: (sloId: string) => request<T.SloStatus>("GET", `/api/v1/slo/${encodeURIComponent(sloId)}`, undefined),
+  /** GET /config */
+  getConfig: () => request<T.SystemConfigListResponse>("GET", `/config`, undefined),
+  /** PUT /config */
+  putConfig: (body: T.PutConfigBody) => request<T.SystemConfigListResponse>("PUT", `/config`, undefined, body),
   /** GET /dashboard */
-  getDashboard: (query: { "periodStart"?: string | number | boolean; "periodEnd"?: string | number | boolean } = {}) => request<T.DashboardSummary>("GET", `/dashboard`, query),
-  /** GET /events */
-  subscribeEvents: (query: { "topics"?: string | number | boolean } = {}) => request<void>("GET", `/events`, query),
-  /** GET /export/downtime */
-  exportDowntimeSummary: (query: { "periodStart": string | number | boolean; "periodEnd": string | number | boolean }) => request<T.DowntimeSummaryResponse>("GET", `/export/downtime`, query),
+  getDashboard2: () => request<T.DashboardResponse>("GET", `/dashboard`, undefined),
+  /** GET /events/stream */
+  streamEvents: (query: { "topics"?: string | number | boolean } = {}) => request<T.SseEvent>("GET", `/events/stream`, query),
+  /** GET /export/downtime-summary */
+  exportDowntimeSummary: (query: { "cursor"?: string | number | boolean; "limit"?: string | number | boolean; "createdFrom": string | number | boolean; "createdTo": string | number | boolean }) => request<T.ExportDowntimeSummaryResponse>("GET", `/export/downtime-summary`, query),
   /** GET /export/requests */
-  exportRequests: (query: { "cursor"?: string | number | boolean; "limit"?: string | number | boolean; "from"?: string | number | boolean; "to"?: string | number | boolean; "status"?: string | number | boolean } = {}) => request<T.ExportRequestListResponse>("GET", `/export/requests`, query),
+  exportRequests: (query: { "cursor"?: string | number | boolean; "limit"?: string | number | boolean; "createdFrom": string | number | boolean; "createdTo": string | number | boolean }) => request<T.ExportRequestsResponse>("GET", `/export/requests`, query),
+  /** GET /healthz */
+  getHealth: () => request<T.HealthResponse>("GET", `/healthz`, undefined),
   /** GET /machines */
   listMachines: (query: { "cursor"?: string | number | boolean; "limit"?: string | number | boolean; "activeOnly"?: string | number | boolean } = {}) => request<T.MachineListResponse>("GET", `/machines`, query),
   /** POST /machines */
-  createMachine: (body: T.MachineCreateRequest) => request<T.Machine>("POST", `/machines`, undefined, body),
-  /** GET /machines/{machineId} */
-  getMachine: (machineId: string) => request<T.Machine>("GET", `/machines/${encodeURIComponent(machineId)}`, undefined),
-  /** PUT /machines/{machineId} */
-  updateMachine: (machineId: string, body: T.MachineUpdateRequest) => request<T.Machine>("PUT", `/machines/${encodeURIComponent(machineId)}`, undefined, body),
-  /** PUT /machines/{machineId}/deactivate */
-  deactivateMachine: (machineId: string, body: T.MachineDeactivateRequest) => request<T.Machine>("PUT", `/machines/${encodeURIComponent(machineId)}/deactivate`, undefined, body),
+  createMachine: (body: T.CreateMachineBody) => request<T.Machine>("POST", `/machines`, undefined, body),
+  /** PATCH /machines/{machineId} */
+  patchMachine: (machineId: string, body: T.PatchMachineBody) => request<T.Machine>("PATCH", `/machines/${encodeURIComponent(machineId)}`, undefined, body),
   /** GET /machines/{machineId}/history */
-  getMachineHistory: (machineId: string, query: { "cursor"?: string | number | boolean; "limit"?: string | number | boolean } = {}) => request<T.RequestListResponse>("GET", `/machines/${encodeURIComponent(machineId)}/history`, query),
+  getMachineHistory: (machineId: string, query: { "cursor"?: string | number | boolean; "limit"?: string | number | boolean } = {}) => request<T.MachineHistoryResponse>("GET", `/machines/${encodeURIComponent(machineId)}/history`, query),
+  /** GET /reports/downtime */
+  getDowntimeReport: (query: { "year": string | number | boolean; "month": string | number | boolean }) => request<T.DowntimeReportResponse>("GET", `/reports/downtime`, query),
   /** GET /requests */
-  listMyRequests: (query: { "cursor"?: string | number | boolean; "limit"?: string | number | boolean; "status"?: string | number | boolean } = {}) => request<T.RequestListResponse>("GET", `/requests`, query),
+  listRequests: (query: { "cursor"?: string | number | boolean; "limit"?: string | number | boolean; "status"?: string | number | boolean; "priority"?: string | number | boolean; "machineId"?: string | number | boolean; "createdFrom"?: string | number | boolean; "createdTo"?: string | number | boolean } = {}) => request<T.RequestListResponse>("GET", `/requests`, query),
   /** POST /requests */
   createRequest: (body: T.CreateRequestBody) => request<T.MaintenanceRequest>("POST", `/requests`, undefined, body),
-  /** GET /requests/queue */
-  listRequestQueue: (query: { "cursor"?: string | number | boolean; "limit"?: string | number | boolean } = {}) => request<T.RequestListResponse>("GET", `/requests/queue`, query),
-  /** GET /requests/{requestId} */
-  getRequest: (requestId: string) => request<T.MaintenanceRequest>("GET", `/requests/${encodeURIComponent(requestId)}`, undefined),
-  /** PUT /requests/{requestId}/assign */
-  assignRequest: (requestId: string, body: T.AssignRequestBody) => request<T.MaintenanceRequest>("PUT", `/requests/${encodeURIComponent(requestId)}/assign`, undefined, body),
   /** GET /requests/{requestId}/comments */
   listComments: (requestId: string, query: { "cursor"?: string | number | boolean; "limit"?: string | number | boolean } = {}) => request<T.CommentListResponse>("GET", `/requests/${encodeURIComponent(requestId)}/comments`, query),
   /** POST /requests/{requestId}/comments */
-  addComment: (requestId: string, body: T.CreateCommentBody) => request<T.Comment>("POST", `/requests/${encodeURIComponent(requestId)}/comments`, undefined, body),
-  /** PUT /requests/{requestId}/resolve */
-  resolveRequest: (requestId: string, body: T.ResolveRequestBody) => request<T.MaintenanceRequest>("PUT", `/requests/${encodeURIComponent(requestId)}/resolve`, undefined, body),
-  /** PUT /requests/{requestId}/start */
-  startRequest: (requestId: string, body: T.StartRequestBody) => request<T.MaintenanceRequest>("PUT", `/requests/${encodeURIComponent(requestId)}/start`, undefined, body),
+  addComment: (requestId: string, body: T.CreateCommentBody) => request<T.RequestComment>("POST", `/requests/${encodeURIComponent(requestId)}/comments`, undefined, body),
+  /** PATCH /requests/{requestId}/status */
+  patchRequestStatus: (requestId: string, body: T.PatchRequestStatusBody) => request<T.MaintenanceRequest>("PATCH", `/requests/${encodeURIComponent(requestId)}/status`, undefined, body),
   };
 }
 

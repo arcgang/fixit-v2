@@ -2,12 +2,16 @@
 import { expectTypeOf, it } from "vitest";
 import type * as T from "./api-types";
 
-it("AssignRequestBody keeps the LLD's fields", () => {
-  expectTypeOf<keyof T.AssignRequestBody>().toEqualTypeOf<never>();
+it("AlertListResponse keeps the LLD's fields", () => {
+  expectTypeOf<keyof T.AlertListResponse>().toEqualTypeOf<"data" | "page">();
 });
 
-it("Comment keeps the LLD's fields", () => {
-  expectTypeOf<keyof T.Comment>().toEqualTypeOf<"authorDisplayName" | "authorRole" | "authorUserId" | "commentId" | "commentText" | "createdAt" | "requestId">();
+it("AlertRecord keeps the LLD's fields", () => {
+  expectTypeOf<keyof T.AlertRecord>().toEqualTypeOf<"annotations" | "created_at" | "fired_at" | "generator_url" | "id" | "labels" | "name" | "resolved_at" | "severity" | "source" | "state" | "updated_at">();
+});
+
+it("AlertWebhookPayload keeps the LLD's fields", () => {
+  expectTypeOf<keyof T.AlertWebhookPayload>().toEqualTypeOf<"alerts" | "correlation_id" | "source">();
 });
 
 it("CommentListResponse keeps the LLD's fields", () => {
@@ -18,66 +22,90 @@ it("CreateCommentBody keeps the LLD's fields", () => {
   expectTypeOf<keyof T.CreateCommentBody>().toEqualTypeOf<"commentText">();
 });
 
+it("CreateMachineBody keeps the LLD's fields", () => {
+  expectTypeOf<keyof T.CreateMachineBody>().toEqualTypeOf<"assetReference" | "location" | "name">();
+});
+
 it("CreateRequestBody keeps the LLD's fields", () => {
   expectTypeOf<keyof T.CreateRequestBody>().toEqualTypeOf<"description" | "machineId" | "priority">();
 });
 
-it("DashboardSummary keeps the LLD's fields", () => {
-  expectTypeOf<keyof T.DashboardSummary>().toEqualTypeOf<"inProgressCount" | "openCount" | "recentRequests" | "resolvedCount" | "slaAtRiskCount" | "slaBreachedCount">();
+it("DashboardListResponse keeps the LLD's fields", () => {
+  expectTypeOf<keyof T.DashboardListResponse>().toEqualTypeOf<"data" | "page">();
 });
 
-it("DowntimeSummaryResponse keeps the LLD's fields", () => {
-  expectTypeOf<keyof T.DowntimeSummaryResponse>().toEqualTypeOf<"data" | "periodEnd" | "periodIncomplete" | "periodStart">();
+it("DashboardResponse keeps the LLD's fields", () => {
+  expectTypeOf<keyof T.DashboardResponse>().toEqualTypeOf<"overdueRequests" | "statusCounts">();
 });
 
-it("ExportRequestListResponse keeps the LLD's fields", () => {
-  expectTypeOf<keyof T.ExportRequestListResponse>().toEqualTypeOf<"data" | "page">();
+it("DowntimeReportResponse keeps the LLD's fields", () => {
+  expectTypeOf<keyof T.DowntimeReportResponse>().toEqualTypeOf<"period" | "periodIncomplete" | "rows">();
+});
+
+it("ExportDowntimeSummaryResponse keeps the LLD's fields", () => {
+  expectTypeOf<keyof T.ExportDowntimeSummaryResponse>().toEqualTypeOf<"data" | "page">();
+});
+
+it("ExportRequestsResponse keeps the LLD's fields", () => {
+  expectTypeOf<keyof T.ExportRequestsResponse>().toEqualTypeOf<"data" | "page">();
+});
+
+it("HealthResponse keeps the LLD's fields", () => {
+  expectTypeOf<keyof T.HealthResponse>().toEqualTypeOf<"checked_at" | "components" | "status">();
 });
 
 it("Machine keeps the LLD's fields", () => {
-  expectTypeOf<keyof T.Machine>().toEqualTypeOf<"active" | "assetReference" | "createdAt" | "deactivatedAt" | "deactivatedByUserId" | "location" | "machineId" | "name">();
+  expectTypeOf<keyof T.Machine>().toEqualTypeOf<"assetReference" | "createdAt" | "deactivatedAt" | "deactivatedByUserId" | "isActive" | "location" | "machineId" | "name">();
 });
 
-it("MachineCreateRequest keeps the LLD's fields", () => {
-  expectTypeOf<keyof T.MachineCreateRequest>().toEqualTypeOf<"assetReference" | "location" | "name">();
-});
-
-it("MachineDeactivateRequest keeps the LLD's fields", () => {
-  expectTypeOf<keyof T.MachineDeactivateRequest>().toEqualTypeOf<"confirm">();
+it("MachineHistoryResponse keeps the LLD's fields", () => {
+  expectTypeOf<keyof T.MachineHistoryResponse>().toEqualTypeOf<"data" | "page">();
 });
 
 it("MachineListResponse keeps the LLD's fields", () => {
   expectTypeOf<keyof T.MachineListResponse>().toEqualTypeOf<"data" | "page">();
 });
 
-it("MachineUpdateRequest keeps the LLD's fields", () => {
-  expectTypeOf<keyof T.MachineUpdateRequest>().toEqualTypeOf<"assetReference" | "location" | "name">();
+it("MaintenanceRequest keeps the LLD's fields", () => {
+  expectTypeOf<keyof T.MaintenanceRequest>().toEqualTypeOf<"assignedAt" | "assignedToDisplayName" | "assignedToUserId" | "createdAt" | "createdByDisplayName" | "createdByUserId" | "description" | "machineId" | "machineName" | "outOfHoursFlag" | "priority" | "referenceNumber" | "requestId" | "resolutionNote" | "resolvedAt" | "slaDeadlineAt" | "slaOutcome" | "slaStatus" | "slaThresholdMinutes" | "status" | "workStartedAt">();
 });
 
-it("MaintenanceRequest keeps the LLD's fields", () => {
-  expectTypeOf<keyof T.MaintenanceRequest>().toEqualTypeOf<"assignedAt" | "assignedToDisplayName" | "assignedToUserId" | "createdAt" | "description" | "downtimeMinutes" | "inProgressAt" | "machineId" | "machineName" | "outOfHours" | "priority" | "requestId" | "resolutionNote" | "resolvedAt" | "slaBreached" | "slaStatus" | "slaTargetAt" | "status" | "submittedByUserId">();
+it("PatchMachineBody keeps the LLD's fields", () => {
+  expectTypeOf<keyof T.PatchMachineBody>().toEqualTypeOf<"assetReference" | "forceDeactivate" | "isActive" | "location" | "name">();
+});
+
+it("PatchRequestStatusBody keeps the LLD's fields", () => {
+  expectTypeOf<keyof T.PatchRequestStatusBody>().toEqualTypeOf<"assignedToDisplayName" | "assignedToUserId" | "notes" | "resolutionNote" | "status">();
+});
+
+it("PutConfigBody keeps the LLD's fields", () => {
+  expectTypeOf<keyof T.PutConfigBody>().toEqualTypeOf<"configs">();
+});
+
+it("RequestComment keeps the LLD's fields", () => {
+  expectTypeOf<keyof T.RequestComment>().toEqualTypeOf<"authorDisplayName" | "authorRole" | "authorUserId" | "commentId" | "commentText" | "createdAt" | "requestId">();
 });
 
 it("RequestListResponse keeps the LLD's fields", () => {
   expectTypeOf<keyof T.RequestListResponse>().toEqualTypeOf<"data" | "page">();
 });
 
-it("ResolveRequestBody keeps the LLD's fields", () => {
-  expectTypeOf<keyof T.ResolveRequestBody>().toEqualTypeOf<"resolutionNote">();
+it("ScrapeTargetListResponse keeps the LLD's fields", () => {
+  expectTypeOf<keyof T.ScrapeTargetListResponse>().toEqualTypeOf<"data" | "page">();
 });
 
-it("SlaConfig keeps the LLD's fields", () => {
-  expectTypeOf<keyof T.SlaConfig>().toEqualTypeOf<"clockMode" | "configId" | "priorityLevel" | "shiftEndTime" | "shiftStartTime" | "slaHours" | "updatedAt" | "updatedByUserId">();
+it("SloListResponse keeps the LLD's fields", () => {
+  expectTypeOf<keyof T.SloListResponse>().toEqualTypeOf<"data" | "page">();
 });
 
-it("SlaConfigListResponse keeps the LLD's fields", () => {
-  expectTypeOf<keyof T.SlaConfigListResponse>().toEqualTypeOf<"data">();
+it("SloStatus keeps the LLD's fields", () => {
+  expectTypeOf<keyof T.SloStatus>().toEqualTypeOf<"current_burn_rate" | "error_budget_remaining_pct" | "evaluated_at" | "id" | "name" | "status" | "target" | "window_hours">();
 });
 
-it("SlaConfigUpdateRequest keeps the LLD's fields", () => {
-  expectTypeOf<keyof T.SlaConfigUpdateRequest>().toEqualTypeOf<"clockMode" | "priorityLevel" | "shiftEndTime" | "shiftStartTime" | "slaHours">();
+it("SseEvent keeps the LLD's fields", () => {
+  expectTypeOf<keyof T.SseEvent>().toEqualTypeOf<"eventType" | "occurredAt" | "payload">();
 });
 
-it("StartRequestBody keeps the LLD's fields", () => {
-  expectTypeOf<keyof T.StartRequestBody>().toEqualTypeOf<never>();
+it("SystemConfigListResponse keeps the LLD's fields", () => {
+  expectTypeOf<keyof T.SystemConfigListResponse>().toEqualTypeOf<"data">();
 });
