@@ -7,5 +7,11 @@ spring:
     default-property-inclusion: non_null
   flyway:
     locations: classpath:db/migration
+spring:
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:8080/realms/fixit}
 server:
   port: ${PORT:8080}

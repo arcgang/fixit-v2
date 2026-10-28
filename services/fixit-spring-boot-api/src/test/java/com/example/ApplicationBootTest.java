@@ -3,9 +3,11 @@ package com.example;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.Import;
 
 /** Fails on duplicate beans, missing configuration and entity mapping errors — before any smoke run. */
 @SpringBootTest
+@Import(TestSecurityBeans.class)
 class ApplicationBootTest {
     @Test
     void contextLoads() {}
