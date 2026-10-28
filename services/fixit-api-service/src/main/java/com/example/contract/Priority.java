@@ -5,7 +5,7 @@ package com.example.contract;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 public enum Priority {
-  @JsonProperty("Critical") CRITICAL,
-  @JsonProperty("Medium") MEDIUM,
-  @JsonProperty("Low") LOW
+  @JsonProperty("CRITICAL") CRITICAL,
+  @JsonProperty("MEDIUM") MEDIUM,
+  @JsonProperty("LOW") LOW
 }

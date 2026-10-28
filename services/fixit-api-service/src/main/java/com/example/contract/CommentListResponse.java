@@ -6,6 +6,6 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.List;
 
 public record CommentListResponse(
-    @JsonProperty("data") List<Comment> data,
+    @JsonProperty("data") List<RequestComment> data,
     @JsonProperty("page") CursorPage page
 ) {}
