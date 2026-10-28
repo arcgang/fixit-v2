@@ -148,6 +148,205 @@ run "spa_client_redirect_and_web_origin_match_cloudfront_url" {
   }
 }
 
+# ---------------------------------------------------------------------------
+# Browser authentication flow — MFA enforcement and role-presence check
+# ---------------------------------------------------------------------------
+
+# --- Precondition: top-level browser flow must exist and be bound to the realm ---
+# browser_flow is set via terraform_data.bind_browser_flow after the flow exists
+# (setting it directly on the realm causes a fresh-apply failure because Keycloak
+# rejects an unknown browserFlow alias in the realm creation POST). The terraform_data
+# resource stores the target alias as its input; we assert that here.
+run "browser_flow_bound_to_realm" {
+  command = plan
+
+  assert {
+    condition     = terraform_data.bind_browser_flow.input == "fixit-browser"
+    error_message = "terraform_data.bind_browser_flow must target the \"fixit-browser\" flow alias"
+  }
+}
+
+run "browser_flow_is_created_in_fixit_realm" {
+  command = plan
+
+  assert {
+    condition     = keycloak_authentication_flow.fixit_browser.realm_id == keycloak_realm.fixit.id
+    error_message = "keycloak_authentication_flow.fixit_browser must belong to the fixit realm"
+  }
+
+  assert {
+    condition     = keycloak_authentication_flow.fixit_browser.alias == "fixit-browser"
+    error_message = "keycloak_authentication_flow.fixit_browser must have alias = \"fixit-browser\""
+  }
+}
+
+# --- MFA sub-flow must exist as a child of the top-level flow ---
+run "mfa_subflow_exists_under_browser_flow" {
+  command = plan
+
+  assert {
+    condition     = keycloak_authentication_subflow.mfa.realm_id == keycloak_realm.fixit.id
+    error_message = "keycloak_authentication_subflow.mfa must belong to the fixit realm"
+  }
+
+  assert {
+    condition     = keycloak_authentication_subflow.mfa.parent_flow_alias == keycloak_authentication_flow.fixit_browser.alias
+    error_message = "keycloak_authentication_subflow.mfa must be a child of the fixit_browser flow"
+  }
+}
+
+# --- TOTP execution must be ALTERNATIVE inside the MFA sub-flow ---
+run "totp_execution_is_alternative_in_mfa_subflow" {
+  command = plan
+
+  assert {
+    condition     = keycloak_authentication_execution.totp.realm_id == keycloak_realm.fixit.id
+    error_message = "keycloak_authentication_execution.totp must belong to the fixit realm"
+  }
+
+  assert {
+    condition     = keycloak_authentication_execution.totp.parent_flow_alias == keycloak_authentication_subflow.mfa.alias
+    error_message = "keycloak_authentication_execution.totp must be a child of the MFA sub-flow"
+  }
+
+  assert {
+    condition     = keycloak_authentication_execution.totp.authenticator == "auth-otp-form"
+    error_message = "keycloak_authentication_execution.totp must use the auth-otp-form provider"
+  }
+
+  assert {
+    condition     = keycloak_authentication_execution.totp.requirement == "ALTERNATIVE"
+    error_message = "keycloak_authentication_execution.totp must be ALTERNATIVE so WebAuthn is also an option"
+  }
+}
+
+# --- WebAuthn execution must be ALTERNATIVE inside the MFA sub-flow ---
+run "webauthn_execution_is_alternative_in_mfa_subflow" {
+  command = plan
+
+  assert {
+    condition     = keycloak_authentication_execution.webauthn.realm_id == keycloak_realm.fixit.id
+    error_message = "keycloak_authentication_execution.webauthn must belong to the fixit realm"
+  }
+
+  assert {
+    condition     = keycloak_authentication_execution.webauthn.parent_flow_alias == keycloak_authentication_subflow.mfa.alias
+    error_message = "keycloak_authentication_execution.webauthn must be a child of the MFA sub-flow"
+  }
+
+  assert {
+    condition     = keycloak_authentication_execution.webauthn.authenticator == "webauthn-authenticator"
+    error_message = "keycloak_authentication_execution.webauthn must use the webauthn-authenticator provider"
+  }
+
+  assert {
+    condition     = keycloak_authentication_execution.webauthn.requirement == "ALTERNATIVE"
+    error_message = "keycloak_authentication_execution.webauthn must be ALTERNATIVE alongside TOTP"
+  }
+}
+
+# --- Role-presence check: conditional sub-flow must deny users with no FixIt role ---
+run "role_check_subflow_exists_under_browser_flow" {
+  command = plan
+
+  assert {
+    condition     = keycloak_authentication_subflow.role_check.realm_id == keycloak_realm.fixit.id
+    error_message = "keycloak_authentication_subflow.role_check must belong to the fixit realm"
+  }
+
+  assert {
+    condition     = keycloak_authentication_subflow.role_check.parent_flow_alias == keycloak_authentication_flow.fixit_browser.alias
+    error_message = "keycloak_authentication_subflow.role_check must be a child of the fixit_browser flow"
+  }
+
+  assert {
+    condition     = keycloak_authentication_subflow.role_check.provider_id == "conditional"
+    error_message = "keycloak_authentication_subflow.role_check must use the conditional provider"
+  }
+}
+
+run "role_check_deny_execution_blocks_users_without_role" {
+  command = plan
+
+  assert {
+    condition     = keycloak_authentication_execution.deny_no_role.realm_id == keycloak_realm.fixit.id
+    error_message = "keycloak_authentication_execution.deny_no_role must belong to the fixit realm"
+  }
+
+  assert {
+    condition     = keycloak_authentication_execution.deny_no_role.parent_flow_alias == keycloak_authentication_subflow.role_check.alias
+    error_message = "keycloak_authentication_execution.deny_no_role must be a child of the role_check sub-flow"
+  }
+
+  assert {
+    condition     = keycloak_authentication_execution.deny_no_role.authenticator == "deny-access-authenticator"
+    error_message = "keycloak_authentication_execution.deny_no_role must use the deny-access-authenticator provider"
+  }
+
+  assert {
+    condition     = keycloak_authentication_execution.deny_no_role.requirement == "REQUIRED"
+    error_message = "keycloak_authentication_execution.deny_no_role must be REQUIRED to enforce the denial"
+  }
+}
+
+# --- Role condition executions: one per FixIt role, all REQUIRED so deny fires when NONE match ---
+run "role_condition_operator_targets_fixit_operator" {
+  command = plan
+
+  assert {
+    condition     = keycloak_authentication_execution.role_condition_operator.authenticator == "conditional-user-role"
+    error_message = "role_condition_operator must use the conditional-user-role authenticator"
+  }
+
+  assert {
+    condition     = keycloak_authentication_execution.role_condition_operator.parent_flow_alias == keycloak_authentication_subflow.role_check.alias
+    error_message = "role_condition_operator must be in the role_check sub-flow"
+  }
+
+  assert {
+    condition     = keycloak_authentication_execution.role_condition_operator.requirement == "REQUIRED"
+    error_message = "role_condition_operator must be REQUIRED so it is evaluated (not skipped)"
+  }
+}
+
+run "role_condition_technician_targets_fixit_technician" {
+  command = plan
+
+  assert {
+    condition     = keycloak_authentication_execution.role_condition_technician.authenticator == "conditional-user-role"
+    error_message = "role_condition_technician must use the conditional-user-role authenticator"
+  }
+
+  assert {
+    condition     = keycloak_authentication_execution.role_condition_technician.parent_flow_alias == keycloak_authentication_subflow.role_check.alias
+    error_message = "role_condition_technician must be in the role_check sub-flow"
+  }
+
+  assert {
+    condition     = keycloak_authentication_execution.role_condition_technician.requirement == "REQUIRED"
+    error_message = "role_condition_technician must be REQUIRED so it is evaluated (not skipped)"
+  }
+}
+
+run "role_condition_supervisor_targets_fixit_supervisor" {
+  command = plan
+
+  assert {
+    condition     = keycloak_authentication_execution.role_condition_supervisor.authenticator == "conditional-user-role"
+    error_message = "role_condition_supervisor must use the conditional-user-role authenticator"
+  }
+
+  assert {
+    condition     = keycloak_authentication_execution.role_condition_supervisor.parent_flow_alias == keycloak_authentication_subflow.role_check.alias
+    error_message = "role_condition_supervisor must be in the role_check sub-flow"
+  }
+
+  assert {
+    condition     = keycloak_authentication_execution.role_condition_supervisor.requirement == "REQUIRED"
+    error_message = "role_condition_supervisor must be REQUIRED so it is evaluated (not skipped)"
+  }
+}
+
 # --- Module outputs must equal the expected static values ---
 run "module_outputs_have_correct_values" {
   command = plan
