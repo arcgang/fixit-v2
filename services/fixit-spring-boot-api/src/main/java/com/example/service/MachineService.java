@@ -5,14 +5,13 @@ import com.example.contract.Machine;
 import com.example.contract.MachineListResponse;
 import com.example.domain.MachineEntity;
 import com.example.domain.MachineRepository;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.util.List;
-import java.util.UUID;
 
 @Service
 public class MachineService {
@@ -26,20 +25,32 @@ public class MachineService {
     @Transactional(readOnly = true)
     public MachineListResponse listMachines(boolean activeOnly, String cursor, int limit) {
         int cappedLimit = Math.min(limit, 200);
-        PageRequest pageRequest = PageRequest.of(0, cappedLimit, Sort.by(Sort.Direction.ASC, "createdAt"));
+        // fetch one extra to know if there is a next page
+        PageRequest pageRequest = PageRequest.of(0, cappedLimit + 1, Sort.by(Sort.Direction.ASC, "createdAt"));
 
-        Page<MachineEntity> page;
-        if (activeOnly) {
-            page = machineRepository.findAllByActive(true, pageRequest);
+        Instant afterCursor = cursor != null ? Instant.parse(cursor) : Instant.EPOCH;
+
+        List<MachineEntity> rows;
+        if (afterCursor.equals(Instant.EPOCH)) {
+            if (activeOnly) {
+                rows = machineRepository.findAllByActiveOrderByCreatedAtAsc(true, pageRequest);
+            } else {
+                rows = machineRepository.findAll(pageRequest).getContent();
+            }
         } else {
-            page = machineRepository.findAll(pageRequest);
+            if (activeOnly) {
+                rows = machineRepository.findAllByActiveAndCreatedAtAfterOrderByCreatedAtAsc(true, afterCursor, pageRequest);
+            } else {
+                rows = machineRepository.findAllByCreatedAtAfterOrderByCreatedAtAsc(afterCursor, pageRequest);
+            }
         }
 
-        List<Machine> data = page.getContent().stream()
-                .map(this::toDto)
-                .toList();
+        boolean hasNext = rows.size() > cappedLimit;
+        List<MachineEntity> page = hasNext ? rows.subList(0, cappedLimit) : rows;
 
-        String nextCursor = page.hasNext() ? String.valueOf(cappedLimit) : null;
+        List<Machine> data = page.stream().map(this::toDto).toList();
+
+        String nextCursor = hasNext ? page.get(page.size() - 1).getCreatedAt().toString() : null;
         CursorPage cursorPage = new CursorPage((long) cappedLimit, nextCursor);
         return new MachineListResponse(data, cursorPage);
     }

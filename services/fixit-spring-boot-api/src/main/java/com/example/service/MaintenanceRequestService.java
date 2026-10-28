@@ -5,6 +5,7 @@ import com.example.domain.*;
 import com.example.web.MachineNotFoundOrInactiveException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -45,8 +46,6 @@ public class MaintenanceRequestService {
         int slaMinutes = slaThresholdMinutes(body.priority());
         Instant slaDeadline = now.plusSeconds((long) slaMinutes * 60);
 
-        String referenceNumber = generateReferenceNumber(now);
-
         MaintenanceRequestEntity entity = new MaintenanceRequestEntity();
         entity.setRequestId(UUID.randomUUID());
         entity.setMachineId(body.machineId());
@@ -59,9 +58,8 @@ public class MaintenanceRequestService {
         entity.setUpdatedAt(now);
         entity.setSlaDeadlineAt(slaDeadline);
         entity.setOutOfHoursFlag(false);
-        entity.setReferenceNumber(referenceNumber);
 
-        requestRepository.save(entity);
+        saveWithReferenceNumber(entity, now);
 
         SlaRecordEntity slaRecord = new SlaRecordEntity();
         slaRecord.setSlaRecordId(UUID.randomUUID());
@@ -69,7 +67,7 @@ public class MaintenanceRequestService {
         slaRecord.setPriority(body.priority());
         slaRecord.setSlaThresholdMinutes(slaMinutes);
         slaRecord.setSlaDeadlineAt(slaDeadline);
-        slaRecord.setSlaClockMode("CONTINUOUS");
+        slaRecord.setSlaClockMode(com.example.domain.SlaClockMode.CONTINUOUS);
         slaRecord.setCreatedAt(now);
         slaRecord.setUpdatedAt(now);
         slaRecordRepository.save(slaRecord);
@@ -86,11 +84,22 @@ public class MaintenanceRequestService {
         return toDto(entity, machine, slaMinutes);
     }
 
-    private String generateReferenceNumber(Instant createdAt) {
+    private void saveWithReferenceNumber(MaintenanceRequestEntity entity, Instant createdAt) {
         String datePart = DATE_FMT.format(createdAt);
         String prefix = "REQ-" + datePart + "-";
-        long existing = requestRepository.countByReferenceNumberStartingWith(prefix);
-        return prefix + String.format("%04d", existing + 1);
+        for (int attempt = 0; attempt < 10; attempt++) {
+            long existing = requestRepository.countByReferenceNumberStartingWith(prefix);
+            entity.setReferenceNumber(prefix + String.format("%04d", existing + 1 + attempt));
+            try {
+                requestRepository.saveAndFlush(entity);
+                return;
+            } catch (DataIntegrityViolationException e) {
+                log.debug("reference number collision on attempt {}; retrying", attempt, e);
+            }
+        }
+        // fallback: UUID suffix guarantees uniqueness
+        entity.setReferenceNumber(prefix + UUID.randomUUID().toString().replace("-", "").substring(0, 8).toUpperCase());
+        requestRepository.saveAndFlush(entity);
     }
 
     private int slaThresholdMinutes(Priority priority) {
@@ -115,7 +124,7 @@ public class MaintenanceRequestService {
                 e.getCreatedAt(),
                 e.getMachineId(),
                 e.getRequestId(),
-                computeSlaStatus(e.getSlaDeadlineAt(), e.getCreatedAt()),
+                computeSlaStatus(e.getSlaDeadlineAt(), Instant.now()),
                 e.getAssignedAt(),
                 e.getResolvedAt(),
                 e.getSlaOutcome(),

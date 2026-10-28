@@ -44,7 +44,7 @@ class MachineControllerTest {
         machineRepository.save(active);
         machineRepository.save(inactive);
 
-        mockMvc.perform(get("/api/v1/machines?activeOnly=true")
+        mockMvc.perform(get("/machines?activeOnly=true")
                         .with(jwt().jwt(b -> b.subject(UUID.randomUUID().toString())
                                 .claim("preferred_username", "operator1")
                                 .claim("realm_access", java.util.Map.of("roles", java.util.List.of("OPERATOR")))))
@@ -61,7 +61,7 @@ class MachineControllerTest {
         machineRepository.save(buildMachine("Active Press", true));
         machineRepository.save(buildMachine("Inactive Press", false));
 
-        mockMvc.perform(get("/api/v1/machines?activeOnly=false")
+        mockMvc.perform(get("/machines?activeOnly=false")
                         .with(jwt().jwt(b -> b.subject(UUID.randomUUID().toString())
                                 .claim("preferred_username", "supervisor1")
                                 .claim("realm_access", java.util.Map.of("roles", java.util.List.of("SUPERVISOR")))))
@@ -72,7 +72,7 @@ class MachineControllerTest {
 
     @Test
     void listMachines_returns401_whenNoJwt() throws Exception {
-        mockMvc.perform(get("/api/v1/machines")
+        mockMvc.perform(get("/machines")
                         .accept(MediaType.APPLICATION_JSON))
                 .andExpect(status().isUnauthorized());
     }
@@ -82,7 +82,7 @@ class MachineControllerTest {
         machineRepository.save(buildMachine("Active1", true));
         machineRepository.save(buildMachine("Inactive1", false));
 
-        mockMvc.perform(get("/api/v1/machines")
+        mockMvc.perform(get("/machines")
                         .with(jwt().jwt(b -> b.subject(UUID.randomUUID().toString())
                                 .claim("preferred_username", "technician1")
                                 .claim("realm_access", java.util.Map.of("roles", java.util.List.of("TECHNICIAN")))))

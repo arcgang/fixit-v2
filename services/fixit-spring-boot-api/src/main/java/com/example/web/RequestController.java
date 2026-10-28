@@ -14,7 +14,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.UUID;
 
 @RestController
-@RequestMapping("/api/v1/requests")
+@RequestMapping("/requests")
 public class RequestController {
 
     private final MaintenanceRequestService requestService;

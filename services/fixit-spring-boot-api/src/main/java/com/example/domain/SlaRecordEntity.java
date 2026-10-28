@@ -27,8 +27,9 @@ public class SlaRecordEntity {
     @Column(name = "sla_deadline_at", nullable = false)
     private Instant slaDeadlineAt;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "sla_clock_mode", nullable = false)
-    private String slaClockMode = "CONTINUOUS";
+    private SlaClockMode slaClockMode = SlaClockMode.CONTINUOUS;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "sla_outcome")
@@ -69,8 +70,8 @@ public class SlaRecordEntity {
     public void setSlaThresholdMinutes(int slaThresholdMinutes) { this.slaThresholdMinutes = slaThresholdMinutes; }
     public Instant getSlaDeadlineAt() { return slaDeadlineAt; }
     public void setSlaDeadlineAt(Instant slaDeadlineAt) { this.slaDeadlineAt = slaDeadlineAt; }
-    public String getSlaClockMode() { return slaClockMode; }
-    public void setSlaClockMode(String slaClockMode) { this.slaClockMode = slaClockMode; }
+    public SlaClockMode getSlaClockMode() { return slaClockMode; }
+    public void setSlaClockMode(SlaClockMode slaClockMode) { this.slaClockMode = slaClockMode; }
     public SlaOutcome getSlaOutcome() { return slaOutcome; }
     public void setSlaOutcome(SlaOutcome slaOutcome) { this.slaOutcome = slaOutcome; }
     public Integer getBreachDurationMinutes() { return breachDurationMinutes; }

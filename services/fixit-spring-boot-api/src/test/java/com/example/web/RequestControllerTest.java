@@ -67,7 +67,7 @@ class RequestControllerTest {
                 "priority", "CRITICAL"
         );
 
-        mockMvc.perform(post("/api/v1/requests")
+        mockMvc.perform(post("/requests")
                         .with(jwt()
                                 .jwt(b -> b.subject(UUID.randomUUID().toString())
                                         .claim("preferred_username", "operator1"))
@@ -91,7 +91,7 @@ class RequestControllerTest {
                 "priority", "MEDIUM"
         );
 
-        mockMvc.perform(post("/api/v1/requests")
+        mockMvc.perform(post("/requests")
                         .with(jwt()
                                 .jwt(b -> b.subject(UUID.randomUUID().toString())
                                         .claim("preferred_username", "operator1"))
@@ -110,7 +110,7 @@ class RequestControllerTest {
                 "priority", "LOW"
         );
 
-        mockMvc.perform(post("/api/v1/requests")
+        mockMvc.perform(post("/requests")
                         .with(jwt()
                                 .jwt(b -> b.subject(UUID.randomUUID().toString())
                                         .claim("preferred_username", "operator1"))
@@ -137,7 +137,7 @@ class RequestControllerTest {
                 "priority", "LOW"
         );
 
-        mockMvc.perform(post("/api/v1/requests")
+        mockMvc.perform(post("/requests")
                         .with(jwt()
                                 .jwt(b -> b.subject(UUID.randomUUID().toString())
                                         .claim("preferred_username", "operator1"))
@@ -156,7 +156,7 @@ class RequestControllerTest {
                 "priority", "MEDIUM"
         );
 
-        mockMvc.perform(post("/api/v1/requests")
+        mockMvc.perform(post("/requests")
                         .with(jwt()
                                 .jwt(b -> b.subject(UUID.randomUUID().toString())
                                         .claim("preferred_username", "operator1"))
@@ -175,7 +175,7 @@ class RequestControllerTest {
                 "priority", "LOW"
         );
 
-        mockMvc.perform(post("/api/v1/requests")
+        mockMvc.perform(post("/requests")
                         .with(jwt()
                                 .jwt(b -> b.subject(UUID.randomUUID().toString())
                                         .claim("preferred_username", "technician1"))
@@ -193,7 +193,7 @@ class RequestControllerTest {
                 "priority", "LOW"
         );
 
-        mockMvc.perform(post("/api/v1/requests")
+        mockMvc.perform(post("/requests")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(body)))
                 .andExpect(status().isUnauthorized());
@@ -207,7 +207,7 @@ class RequestControllerTest {
                 "priority", "CRITICAL"
         );
 
-        mockMvc.perform(post("/api/v1/requests")
+        mockMvc.perform(post("/requests")
                         .with(jwt()
                                 .jwt(b -> b.subject(UUID.randomUUID().toString())
                                         .claim("preferred_username", "operator1"))
