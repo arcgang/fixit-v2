@@ -9,8 +9,24 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 @RestControllerAdvice
 public class ApiExceptionHandler {
+
+    @ExceptionHandler(RequestService.ValidationException.class)
+    public ResponseEntity<ErrorBody> onValidation(RequestService.ValidationException e) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(new ErrorBody("validation_error", e.getDetails(), "Request validation failed", java.util.UUID.randomUUID()));
+    }
+
+    @ExceptionHandler(RequestService.MachineNotFoundOrInactiveException.class)
+    public ResponseEntity<ErrorBody> onMachineNotFound(RequestService.MachineNotFoundOrInactiveException e) {
+        return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY)
+                .body(new ErrorBody("MACHINE_NOT_FOUND_OR_INACTIVE", null, e.getMessage(), java.util.UUID.randomUUID()));
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorBody> onError(Exception e) {
+        if (e instanceof org.springframework.security.access.AccessDeniedException ade) {
+            throw ade;
+        }
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new ErrorBody("internal_error", null, e.getMessage() == null ? "error" : e.getMessage(), java.util.UUID.randomUUID()));
     }
 }
