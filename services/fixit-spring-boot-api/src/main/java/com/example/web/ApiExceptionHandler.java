@@ -2,6 +2,8 @@
 package com.example.web;
 
 import com.example.contract.ErrorBody;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -10,10 +12,12 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 @RestControllerAdvice
 public class ApiExceptionHandler {
 
+    private static final Logger log = LoggerFactory.getLogger(ApiExceptionHandler.class);
+
     @ExceptionHandler(RequestService.ValidationException.class)
     public ResponseEntity<ErrorBody> onValidation(RequestService.ValidationException e) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                .body(new ErrorBody("validation_error", e.getDetails(), "Request validation failed", java.util.UUID.randomUUID()));
+                .body(new ErrorBody("VALIDATION_ERROR", e.getDetails(), "Request validation failed", java.util.UUID.randomUUID()));
     }
 
     @ExceptionHandler(RequestService.MachineNotFoundOrInactiveException.class)
@@ -27,6 +31,7 @@ public class ApiExceptionHandler {
         if (e instanceof org.springframework.security.access.AccessDeniedException ade) {
             throw ade;
         }
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new ErrorBody("internal_error", null, e.getMessage() == null ? "error" : e.getMessage(), java.util.UUID.randomUUID()));
+        log.error("Unhandled exception", e);
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new ErrorBody("INTERNAL_ERROR", null, "An unexpected error occurred", java.util.UUID.randomUUID()));
     }
 }

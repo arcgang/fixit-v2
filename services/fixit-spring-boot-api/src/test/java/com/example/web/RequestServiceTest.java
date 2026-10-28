@@ -17,11 +17,11 @@ import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -30,8 +30,6 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -51,6 +49,7 @@ class RequestServiceTest {
 
     private static final UUID MACHINE_ID = UUID.fromString("10000000-0000-0000-0000-000000000001");
     private static final UUID USER_ID    = UUID.fromString("20000000-0000-0000-0000-000000000001");
+    private static final Instant FIXED_NOW = Instant.parse("2026-10-28T10:00:00Z");
 
     @BeforeEach
     void setUp() {
@@ -92,7 +91,7 @@ class RequestServiceTest {
         machine.setMachineId(MACHINE_ID);
         machine.setName("Press A");
         machine.setActive(false);
-        machine.setCreatedAt(Instant.now());
+        machine.setCreatedAt(FIXED_NOW);
         when(machineRepository.findById(MACHINE_ID)).thenReturn(Optional.of(machine));
 
         assertThrows(RequestService.MachineNotFoundOrInactiveException.class,
@@ -113,7 +112,7 @@ class RequestServiceTest {
         CreateRequestBody body = new CreateRequestBody(Priority.CRITICAL, MACHINE_ID, "Pump broken");
         MachineEntity machine = activeMachine("Press A");
         when(machineRepository.findById(MACHINE_ID)).thenReturn(Optional.of(machine));
-        when(requestRepository.countByReferenceNumberStartingWith(anyString())).thenReturn(0L);
+        when(requestRepository.lockAndGetDailySequence(any(LocalDate.class))).thenReturn(1);
 
         MaintenanceRequestEntity savedEntity = stubSavedEntity(body, machine);
         SlaRecordEntity savedSla = stubSlaEntity(savedEntity);
@@ -127,8 +126,8 @@ class RequestServiceTest {
         assertEquals(60L, result.slaThresholdMinutes());
         assertEquals("Press A", result.machineName());
         assertNotNull(result.referenceNumber());
-        assertTrue(result.referenceNumber().matches("REQ-\\d{6}-\\d{6}"),
-                "referenceNumber must match REQ-YYYYMM-NNNNNN, got: " + result.referenceNumber());
+        assertTrue(result.referenceNumber().matches("REQ-\\d{8}-\\d{4}"),
+                "referenceNumber must match REQ-YYYYMMDD-NNNN, got: " + result.referenceNumber());
         assertEquals(result.createdAt().plusSeconds(60 * 60), result.slaDeadlineAt());
     }
 
@@ -137,7 +136,7 @@ class RequestServiceTest {
         CreateRequestBody body = new CreateRequestBody(Priority.MEDIUM, MACHINE_ID, "Pump worn");
         MachineEntity machine = activeMachine("Press B");
         when(machineRepository.findById(MACHINE_ID)).thenReturn(Optional.of(machine));
-        when(requestRepository.countByReferenceNumberStartingWith(anyString())).thenReturn(0L);
+        when(requestRepository.lockAndGetDailySequence(any(LocalDate.class))).thenReturn(1);
 
         MaintenanceRequestEntity savedEntity = stubSavedEntity(body, machine);
         savedEntity.setPriority(com.example.contract.Priority.MEDIUM);
@@ -162,7 +161,7 @@ class RequestServiceTest {
         CreateRequestBody body = new CreateRequestBody(Priority.CRITICAL, MACHINE_ID, "Pump broken");
         MachineEntity machine = activeMachine("Press A");
         when(machineRepository.findById(MACHINE_ID)).thenReturn(Optional.of(machine));
-        when(requestRepository.countByReferenceNumberStartingWith(anyString())).thenReturn(0L);
+        when(requestRepository.lockAndGetDailySequence(any(LocalDate.class))).thenReturn(1);
 
         MaintenanceRequestEntity savedEntity = stubSavedEntity(body, machine);
         SlaRecordEntity savedSla = stubSlaEntity(savedEntity);
@@ -183,12 +182,11 @@ class RequestServiceTest {
         m.setMachineId(MACHINE_ID);
         m.setName(name);
         m.setActive(true);
-        m.setCreatedAt(Instant.now());
+        m.setCreatedAt(FIXED_NOW);
         return m;
     }
 
     private MaintenanceRequestEntity stubSavedEntity(CreateRequestBody body, MachineEntity machine) {
-        Instant now = Instant.now();
         MaintenanceRequestEntity e = new MaintenanceRequestEntity();
         e.setRequestId(UUID.randomUUID());
         e.setMachineId(machine.getMachineId());
@@ -197,11 +195,11 @@ class RequestServiceTest {
         e.setStatus(com.example.contract.RequestStatus.OPEN);
         e.setCreatedByUserId(USER_ID);
         e.setCreatedByDisplayName("operator1");
-        e.setCreatedAt(now);
-        e.setUpdatedAt(now);
-        e.setSlaDeadlineAt(now.plusSeconds(60 * 60L));
+        e.setCreatedAt(FIXED_NOW);
+        e.setUpdatedAt(FIXED_NOW);
+        e.setSlaDeadlineAt(FIXED_NOW.plusSeconds(60 * 60L));
         e.setOutOfHoursFlag(false);
-        e.setReferenceNumber("REQ-202610-000001");
+        e.setReferenceNumber("REQ-20261028-0001");
         return e;
     }
 

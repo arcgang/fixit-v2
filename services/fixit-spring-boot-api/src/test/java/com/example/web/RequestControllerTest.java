@@ -121,7 +121,7 @@ class RequestControllerTest {
                 RequestStatus.OPEN, Priority.CRITICAL, createdAt, MACHINE_ID, REQUEST_ID,
                 SlaStatus.ON_TRACK, null, null, null,
                 "Pump broken", "Press A", slaDeadline, null, false, null,
-                USER_ID, "REQ-202610-000001", null, 60L, "operator1", null);
+                USER_ID, "REQ-20261028-0001", null, 60L, "operator1", null);
         when(requestService.createRequest(any(), any(), any())).thenReturn(response);
 
         String body = objectMapper.writeValueAsString(
@@ -133,7 +133,7 @@ class RequestControllerTest {
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.status").value("OPEN"))
                 .andExpect(jsonPath("$.slaStatus").value("ON_TRACK"))
-                .andExpect(jsonPath("$.referenceNumber").value(matchesPattern("REQ-\\d{6}-\\d{6}")))
+                .andExpect(jsonPath("$.referenceNumber").value(matchesPattern("REQ-\\d{8}-\\d{4}")))
                 .andExpect(jsonPath("$.slaThresholdMinutes").value(60))
                 .andExpect(jsonPath("$.priority").value("CRITICAL"));
     }

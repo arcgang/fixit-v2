@@ -21,6 +21,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -32,7 +33,7 @@ import java.util.UUID;
 public class RequestService {
 
     private static final Logger log = LoggerFactory.getLogger(RequestService.class);
-    private static final DateTimeFormatter YYYYMM = DateTimeFormatter.ofPattern("yyyyMM").withZone(ZoneOffset.UTC);
+    private static final DateTimeFormatter YYYYMMDD = DateTimeFormatter.ofPattern("yyyyMMdd").withZone(ZoneOffset.UTC);
 
     private final MachineRepository machineRepository;
     private final MaintenanceRequestRepository requestRepository;
@@ -62,9 +63,10 @@ public class RequestService {
         int thresholdMinutes = thresholdFor(body.priority());
         Instant slaDeadline = now.plusSeconds((long) thresholdMinutes * 60);
 
-        String prefix = "REQ-" + YYYYMM.format(now) + "-";
-        long count = requestRepository.countByReferenceNumberStartingWith(prefix);
-        String referenceNumber = prefix + String.format("%06d", count + 1);
+        LocalDate today = LocalDate.ofInstant(now, ZoneOffset.UTC);
+        requestRepository.incrementDailySequence(today);
+        int seq = requestRepository.lockAndGetDailySequence(today);
+        String referenceNumber = "REQ-" + YYYYMMDD.format(now) + "-" + String.format("%04d", seq);
 
         MaintenanceRequestEntity entity = new MaintenanceRequestEntity();
         entity.setRequestId(UUID.randomUUID());
