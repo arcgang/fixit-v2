@@ -4,12 +4,12 @@
     "version": "1.0.0"
   },
   "paths": {
-    "/events": {
+    "/config": {
       "get": {
         "tags": [
-          "Events"
+          "Config"
         ],
-        "summary": "Server-Sent Events stream for real-time status updates (all authenticated roles)",
+        "summary": "Retrieve all system configuration entries (Supervisor only)",
         "security": [
           {
             "BearerAuth": []
@@ -18,13 +18,13 @@
         "responses": {
           "200": {
             "content": {
-              "text/event-stream": {
+              "application/json": {
                 "schema": {
-                  "type": "string"
+                  "$ref": "#/components/schemas/SystemConfigListResponse"
                 }
               }
             },
-            "description": "SSE stream — text/event-stream; events: request.updated, request.created, dashboard.updated"
+            "description": "System configuration"
           },
           "401": {
             "content": {
@@ -44,20 +44,126 @@
                 }
               }
             },
-            "description": "Forbidden"
+            "description": "Forbidden — not SUPERVISOR"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Internal server error"
           }
         },
-        "parameters": [
+        "operationId": "getConfig"
+      },
+      "put": {
+        "tags": [
+          "Config"
+        ],
+        "summary": "Update one or more system configuration entries (Supervisor only)",
+        "security": [
           {
-            "in": "query",
-            "name": "topics",
-            "schema": {
-              "type": "string"
-            },
-            "description": "Comma-separated list of topics: requests,dashboard"
+            "BearerAuth": []
           }
         ],
-        "operationId": "subscribeEvents"
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SystemConfigListResponse"
+                }
+              }
+            },
+            "description": "Updated configuration"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Validation error"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Unauthenticated"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Forbidden — not SUPERVISOR"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Internal server error"
+          }
+        },
+        "operationId": "putConfig",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PutConfigBody"
+              }
+            }
+          },
+          "required": true
+        }
+      }
+    },
+    "/healthz": {
+      "get": {
+        "tags": [
+          "Health"
+        ],
+        "summary": "Liveness probe for the observability stack",
+        "security": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            },
+            "description": "Stack is healthy"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "One or more components degraded"
+          }
+        },
+        "operationId": "getHealth"
       }
     },
     "/machines": {
@@ -65,7 +171,7 @@
         "tags": [
           "Machines"
         ],
-        "summary": "List machines (active only by default; Supervisor may include inactive)",
+        "summary": "List machines — active only by default; Supervisor can see all",
         "security": [
           {
             "BearerAuth": []
@@ -80,7 +186,7 @@
                 }
               }
             },
-            "description": "Paginated machine list"
+            "description": "Paginated list of machines"
           },
           "401": {
             "content": {
@@ -92,7 +198,7 @@
             },
             "description": "Unauthenticated"
           },
-          "403": {
+          "500": {
             "content": {
               "application/json": {
                 "schema": {
@@ -100,7 +206,7 @@
                 }
               }
             },
-            "description": "Forbidden"
+            "description": "Internal server error"
           }
         },
         "parameters": [
@@ -116,7 +222,7 @@
             "name": "limit",
             "schema": {
               "type": "integer",
-              "default": 20,
+              "default": 50,
               "maximum": 200,
               "minimum": 1
             }
@@ -127,7 +233,8 @@
             "schema": {
               "type": "boolean",
               "default": true
-            }
+            },
+            "description": "When true (default), returns only active machines. Supervisor may pass false to see all."
           }
         ],
         "operationId": "listMachines"
@@ -161,7 +268,7 @@
                 }
               }
             },
-            "description": "Validation error — name is required"
+            "description": "Validation error — name required"
           },
           "401": {
             "content": {
@@ -181,7 +288,17 @@
                 }
               }
             },
-            "description": "Forbidden — caller is not a Supervisor"
+            "description": "Forbidden — not SUPERVISOR"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Internal server error"
           }
         },
         "operationId": "createMachine",
@@ -189,7 +306,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/MachineCreateRequest"
+                "$ref": "#/components/schemas/CreateMachineBody"
               }
             }
           },
@@ -202,7 +319,7 @@
         "tags": [
           "Requests"
         ],
-        "summary": "List requests raised by the authenticated Operator (scoped to caller)",
+        "summary": "List maintenance requests — Operator sees own; Technician sees all OPEN; Supervisor sees all",
         "security": [
           {
             "BearerAuth": []
@@ -217,7 +334,7 @@
                 }
               }
             },
-            "description": "Paginated list of the caller's requests"
+            "description": "Paginated list of requests"
           },
           "401": {
             "content": {
@@ -237,7 +354,17 @@
                 }
               }
             },
-            "description": "Forbidden — caller is not an Operator"
+            "description": "Forbidden"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Internal server error"
           }
         },
         "parameters": [
@@ -246,7 +373,8 @@
             "name": "cursor",
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Opaque pagination cursor"
           },
           {
             "in": "query",
@@ -263,16 +391,52 @@
             "name": "status",
             "schema": {
               "$ref": "#/components/schemas/RequestStatus"
-            }
+            },
+            "description": "Filter by status"
+          },
+          {
+            "in": "query",
+            "name": "priority",
+            "schema": {
+              "$ref": "#/components/schemas/Priority"
+            },
+            "description": "Filter by priority"
+          },
+          {
+            "in": "query",
+            "name": "machineId",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Filter by machine"
+          },
+          {
+            "in": "query",
+            "name": "createdFrom",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "description": "Filter requests created on or after this timestamp"
+          },
+          {
+            "in": "query",
+            "name": "createdTo",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "description": "Filter requests created on or before this timestamp"
           }
         ],
-        "operationId": "listMyRequests"
+        "operationId": "listRequests"
       },
       "post": {
         "tags": [
           "Requests"
         ],
-        "summary": "Submit a new maintenance request (Operator only)",
+        "summary": "Create a new maintenance request (Operator only)",
         "security": [
           {
             "BearerAuth": []
@@ -287,7 +451,7 @@
                 }
               }
             },
-            "description": "Request created"
+            "description": "Request created successfully"
           },
           "400": {
             "content": {
@@ -317,7 +481,7 @@
                 }
               }
             },
-            "description": "Forbidden — caller is not an Operator"
+            "description": "Forbidden — caller does not have OPERATOR role"
           },
           "422": {
             "content": {
@@ -328,6 +492,16 @@
               }
             },
             "description": "Machine not found or inactive"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Internal server error"
           }
         },
         "operationId": "createRequest",
@@ -348,7 +522,7 @@
         "tags": [
           "Dashboard"
         ],
-        "summary": "Get supervisor dashboard summary — counts, SLA flags, recent requests (Supervisor only)",
+        "summary": "Get supervisor dashboard — status counts and overdue requests (Supervisor only)",
         "security": [
           {
             "BearerAuth": []
@@ -359,11 +533,11 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DashboardSummary"
+                  "$ref": "#/components/schemas/DashboardResponse"
                 }
               }
             },
-            "description": "Dashboard summary"
+            "description": "Dashboard data"
           },
           "401": {
             "content": {
@@ -383,38 +557,28 @@
                 }
               }
             },
-            "description": "Forbidden — caller is not a Supervisor"
+            "description": "Forbidden — not SUPERVISOR"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Internal server error"
           }
         },
-        "parameters": [
-          {
-            "in": "query",
-            "name": "periodStart",
-            "schema": {
-              "type": "string",
-              "format": "date"
-            },
-            "description": "ISO date for downtime period start"
-          },
-          {
-            "in": "query",
-            "name": "periodEnd",
-            "schema": {
-              "type": "string",
-              "format": "date"
-            },
-            "description": "ISO date for downtime period end"
-          }
-        ],
         "operationId": "getDashboard"
       }
     },
-    "/config/sla": {
+    "/api/v1/slo": {
       "get": {
         "tags": [
-          "Configuration"
+          "SLO"
         ],
-        "summary": "Get all SLA configuration entries (Supervisor only)",
+        "summary": "List current SLO burn-rate and error-budget status for all defined SLOs",
         "security": [
           {
             "BearerAuth": []
@@ -425,11 +589,11 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SlaConfigListResponse"
+                  "$ref": "#/components/schemas/SloListResponse"
                 }
               }
             },
-            "description": "SLA configuration list"
+            "description": "Paginated SLO status list"
           },
           "401": {
             "content": {
@@ -439,127 +603,7 @@
                 }
               }
             },
-            "description": "Unauthenticated"
-          },
-          "403": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            },
-            "description": "Forbidden — caller is not a Supervisor"
-          }
-        },
-        "operationId": "getSlaConfig"
-      },
-      "put": {
-        "tags": [
-          "Configuration"
-        ],
-        "summary": "Update SLA configuration for a priority level (Supervisor only); takes effect within 5 minutes",
-        "security": [
-          {
-            "BearerAuth": []
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/SlaConfig"
-                }
-              }
-            },
-            "description": "SLA config updated"
-          },
-          "400": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            },
-            "description": "Validation error"
-          },
-          "401": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            },
-            "description": "Unauthenticated"
-          },
-          "403": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            },
-            "description": "Forbidden — caller is not a Supervisor"
-          }
-        },
-        "operationId": "updateSlaConfig",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/SlaConfigUpdateRequest"
-              }
-            }
-          },
-          "required": true
-        }
-      }
-    },
-    "/requests/queue": {
-      "get": {
-        "tags": [
-          "Requests"
-        ],
-        "summary": "List all Open requests sorted by priority then creation time (Technician only)",
-        "security": [
-          {
-            "BearerAuth": []
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RequestListResponse"
-                }
-              }
-            },
-            "description": "Priority-sorted open request queue"
-          },
-          "401": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            },
-            "description": "Unauthenticated"
-          },
-          "403": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            },
-            "description": "Forbidden — caller is not a Technician"
+            "description": "Unauthorised"
           }
         },
         "parameters": [
@@ -568,7 +612,8 @@
             "name": "cursor",
             "schema": {
               "type": "string"
-            }
+            },
+            "required": false
           },
           {
             "in": "query",
@@ -578,18 +623,19 @@
               "default": 20,
               "maximum": 200,
               "minimum": 1
-            }
+            },
+            "required": false
           }
         ],
-        "operationId": "listRequestQueue"
+        "operationId": "listSloStatus"
       }
     },
-    "/export/downtime": {
+    "/api/v1/alerts": {
       "get": {
         "tags": [
-          "Export"
+          "Alerts"
         ],
-        "summary": "Export aggregated downtime hours per machine per period (Supervisor only)",
+        "summary": "List recent firing or resolved alerts with cursor pagination",
         "security": [
           {
             "BearerAuth": []
@@ -600,13 +646,13 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DowntimeSummaryResponse"
+                  "$ref": "#/components/schemas/AlertListResponse"
                 }
               }
             },
-            "description": "Downtime summary per machine"
+            "description": "Paginated list of alerts"
           },
-          "400": {
+          "401": {
             "content": {
               "application/json": {
                 "schema": {
@@ -614,7 +660,79 @@
                 }
               }
             },
-            "description": "Invalid period parameters"
+            "description": "Unauthorised"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Internal error"
+          }
+        },
+        "parameters": [
+          {
+            "in": "query",
+            "name": "cursor",
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "description": "Opaque pagination cursor"
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "type": "integer",
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1
+            },
+            "required": false
+          },
+          {
+            "in": "query",
+            "name": "state",
+            "schema": {
+              "enum": [
+                "firing",
+                "resolved",
+                "all"
+              ],
+              "type": "string",
+              "default": "all"
+            },
+            "required": false
+          }
+        ],
+        "operationId": "listAlerts"
+      }
+    },
+    "/events/stream": {
+      "get": {
+        "tags": [
+          "Events"
+        ],
+        "summary": "Server-Sent Events stream for real-time updates (all roles)",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "$ref": "#/components/schemas/SseEvent"
+                }
+              }
+            },
+            "description": "SSE stream — text/event-stream"
           },
           "401": {
             "content": {
@@ -634,30 +752,33 @@
                 }
               }
             },
-            "description": "Forbidden — caller is not a Supervisor"
+            "description": "Forbidden"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Internal server error"
           }
         },
         "parameters": [
           {
             "in": "query",
-            "name": "periodStart",
+            "name": "topics",
             "schema": {
-              "type": "string",
-              "format": "date"
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
             },
-            "required": true
-          },
-          {
-            "in": "query",
-            "name": "periodEnd",
-            "schema": {
-              "type": "string",
-              "format": "date"
-            },
-            "required": true
+            "description": "Optional filter: REQUEST_CREATED, REQUEST_STATUS_CHANGED, REQUEST_ASSIGNED, COMMENT_ADDED, MACHINE_UPDATED"
           }
         ],
-        "operationId": "exportDowntimeSummary"
+        "operationId": "streamEvents"
       }
     },
     "/export/requests": {
@@ -665,7 +786,7 @@
         "tags": [
           "Export"
         ],
-        "summary": "Export request records with all timestamps; supports date-range filter (Supervisor only)",
+        "summary": "Export request records with date-range filter (Supervisor only, Phase 2)",
         "security": [
           {
             "BearerAuth": []
@@ -676,7 +797,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ExportRequestListResponse"
+                  "$ref": "#/components/schemas/ExportRequestsResponse"
                 }
               }
             },
@@ -710,7 +831,17 @@
                 }
               }
             },
-            "description": "Forbidden — caller is not a Supervisor"
+            "description": "Forbidden — not SUPERVISOR"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Internal server error"
           }
         },
         "parameters": [
@@ -733,39 +864,32 @@
           },
           {
             "in": "query",
-            "name": "from",
+            "name": "createdFrom",
             "schema": {
               "type": "string",
               "format": "date-time"
             },
-            "description": "Inclusive start of creation date range"
+            "required": true
           },
           {
             "in": "query",
-            "name": "to",
+            "name": "createdTo",
             "schema": {
               "type": "string",
               "format": "date-time"
             },
-            "description": "Inclusive end of creation date range"
-          },
-          {
-            "in": "query",
-            "name": "status",
-            "schema": {
-              "$ref": "#/components/schemas/RequestStatus"
-            }
+            "required": true
           }
         ],
         "operationId": "exportRequests"
       }
     },
-    "/machines/{machineId}": {
+    "/reports/downtime": {
       "get": {
         "tags": [
-          "Machines"
+          "Reports"
         ],
-        "summary": "Get a single machine by ID (all roles)",
+        "summary": "Aggregated downtime hours per machine per month (Supervisor only)",
         "security": [
           {
             "BearerAuth": []
@@ -776,11 +900,21 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Machine"
+                  "$ref": "#/components/schemas/DowntimeReportResponse"
                 }
               }
             },
-            "description": "Machine detail"
+            "description": "Downtime report"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Invalid year/month parameters"
           },
           "401": {
             "content": {
@@ -800,7 +934,132 @@
                 }
               }
             },
-            "description": "Forbidden"
+            "description": "Forbidden — not SUPERVISOR"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Internal server error"
+          }
+        },
+        "parameters": [
+          {
+            "in": "query",
+            "name": "year",
+            "schema": {
+              "type": "integer"
+            },
+            "required": true,
+            "description": "Report year e.g. 2025"
+          },
+          {
+            "in": "query",
+            "name": "month",
+            "schema": {
+              "type": "integer",
+              "maximum": 12,
+              "minimum": 1
+            },
+            "required": true,
+            "description": "Report month 1-12"
+          }
+        ],
+        "operationId": "getDowntimeReport"
+      }
+    },
+    "/api/v1/dashboards": {
+      "get": {
+        "tags": [
+          "Dashboards"
+        ],
+        "summary": "List available Grafana dashboard metadata with cursor pagination",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DashboardListResponse"
+                }
+              }
+            },
+            "description": "Paginated list of dashboard metadata"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Unauthorised"
+          }
+        },
+        "parameters": [
+          {
+            "in": "query",
+            "name": "cursor",
+            "schema": {
+              "type": "string"
+            },
+            "required": false
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "type": "integer",
+              "default": 20,
+              "maximum": 200,
+              "minimum": 1
+            },
+            "required": false
+          }
+        ],
+        "operationId": "listDashboards"
+      }
+    },
+    "/api/v1/slo/{sloId}": {
+      "get": {
+        "tags": [
+          "SLO"
+        ],
+        "summary": "Retrieve current burn-rate and error-budget for a single SLO",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SloStatus"
+                }
+              }
+            },
+            "description": "SLO status"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Unauthorised"
           },
           "404": {
             "content": {
@@ -810,27 +1069,28 @@
                 }
               }
             },
-            "description": "Not found"
+            "description": "SLO not found"
           }
         },
         "parameters": [
           {
             "in": "path",
-            "name": "machineId",
+            "name": "sloId",
             "schema": {
-              "type": "string",
-              "format": "uuid"
+              "type": "string"
             },
             "required": true
           }
         ],
-        "operationId": "getMachine"
-      },
-      "put": {
+        "operationId": "getSloStatus"
+      }
+    },
+    "/machines/{machineId}": {
+      "patch": {
         "tags": [
           "Machines"
         ],
-        "summary": "Update machine name and optional fields (Supervisor only)",
+        "summary": "Edit or deactivate a machine (Supervisor only)",
         "security": [
           {
             "BearerAuth": []
@@ -875,7 +1135,7 @@
                 }
               }
             },
-            "description": "Forbidden — caller is not a Supervisor"
+            "description": "Forbidden — not SUPERVISOR"
           },
           "404": {
             "content": {
@@ -885,7 +1145,39 @@
                 }
               }
             },
-            "description": "Not found"
+            "description": "Machine not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Error"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "deactivationWarning": {
+                          "$ref": "#/components/schemas/DeactivationWarning"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Machine has open/in-progress requests and forceDeactivate was not set"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Internal server error"
           }
         },
         "parameters": [
@@ -899,12 +1191,12 @@
             "required": true
           }
         ],
-        "operationId": "updateMachine",
+        "operationId": "patchMachine",
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/MachineUpdateRequest"
+                "$ref": "#/components/schemas/PatchMachineBody"
               }
             }
           },
@@ -912,181 +1204,20 @@
         }
       }
     },
-    "/requests/{requestId}": {
-      "get": {
+    "/api/v1/alerts/webhook": {
+      "post": {
         "tags": [
-          "Requests"
+          "Alerts"
         ],
-        "summary": "Get a single maintenance request by ID (all roles)",
+        "summary": "Receive alert notifications forwarded from Amazon SNS / CloudWatch Alarms",
         "security": [
           {
             "BearerAuth": []
           }
         ],
         "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/MaintenanceRequest"
-                }
-              }
-            },
-            "description": "Request detail"
-          },
-          "401": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            },
-            "description": "Unauthenticated"
-          },
-          "403": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            },
-            "description": "Forbidden"
-          },
-          "404": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            },
-            "description": "Not found"
-          }
-        },
-        "parameters": [
-          {
-            "in": "path",
-            "name": "requestId",
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            },
-            "required": true
-          }
-        ],
-        "operationId": "getRequest"
-      }
-    },
-    "/requests/{requestId}/start": {
-      "put": {
-        "tags": [
-          "Requests"
-        ],
-        "summary": "Transition an assigned Open request to In Progress (assignee Technician only)",
-        "security": [
-          {
-            "BearerAuth": []
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/MaintenanceRequest"
-                }
-              }
-            },
-            "description": "Request transitioned to In Progress"
-          },
-          "401": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            },
-            "description": "Unauthenticated"
-          },
-          "403": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            },
-            "description": "Forbidden — caller is not the assignee Technician"
-          },
-          "404": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            },
-            "description": "Not found"
-          },
-          "409": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            },
-            "description": "Conflict — invalid state transition"
-          }
-        },
-        "parameters": [
-          {
-            "in": "path",
-            "name": "requestId",
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            },
-            "required": true
-          }
-        ],
-        "operationId": "startRequest",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/StartRequestBody"
-              }
-            }
-          },
-          "required": true
-        }
-      }
-    },
-    "/requests/{requestId}/assign": {
-      "put": {
-        "tags": [
-          "Requests"
-        ],
-        "summary": "Self-assign an Open request to the authenticated Technician",
-        "security": [
-          {
-            "BearerAuth": []
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/MaintenanceRequest"
-                }
-              }
-            },
-            "description": "Request assigned"
+          "204": {
+            "description": "Alert accepted"
           },
           "400": {
             "content": {
@@ -1096,7 +1227,187 @@
                 }
               }
             },
-            "description": "Request already assigned"
+            "description": "Malformed payload"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Unauthorised"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Internal error"
+          }
+        },
+        "operationId": "receiveAlertWebhook",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AlertWebhookPayload"
+              }
+            }
+          },
+          "required": true
+        }
+      }
+    },
+    "/api/v1/scrape-targets": {
+      "get": {
+        "tags": [
+          "Scrape Targets"
+        ],
+        "summary": "List all Prometheus scrape targets and their current UP/DOWN state",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScrapeTargetListResponse"
+                }
+              }
+            },
+            "description": "Paginated scrape target list"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Unauthorised"
+          }
+        },
+        "parameters": [
+          {
+            "in": "query",
+            "name": "cursor",
+            "schema": {
+              "type": "string"
+            },
+            "required": false
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "type": "integer",
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1
+            },
+            "required": false
+          }
+        ],
+        "operationId": "listScrapeTargets"
+      }
+    },
+    "/api/v1/alerts/{alertId}": {
+      "get": {
+        "tags": [
+          "Alerts"
+        ],
+        "summary": "Retrieve a single alert record by ID",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AlertRecord"
+                }
+              }
+            },
+            "description": "Alert record"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Unauthorised"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Alert not found"
+          }
+        },
+        "parameters": [
+          {
+            "in": "path",
+            "name": "alertId",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "required": true
+          }
+        ],
+        "operationId": "getAlert"
+      }
+    },
+    "/export/downtime-summary": {
+      "get": {
+        "tags": [
+          "Export"
+        ],
+        "summary": "Export aggregated downtime summary (Supervisor only, Phase 2)",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExportDowntimeSummaryResponse"
+                }
+              }
+            },
+            "description": "Paginated downtime summary export"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Invalid date range"
           },
           "401": {
             "content": {
@@ -1116,7 +1427,110 @@
                 }
               }
             },
-            "description": "Forbidden — caller is not a Technician"
+            "description": "Forbidden — not SUPERVISOR"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Internal server error"
+          }
+        },
+        "parameters": [
+          {
+            "in": "query",
+            "name": "cursor",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "type": "integer",
+              "default": 100,
+              "maximum": 200,
+              "minimum": 1
+            }
+          },
+          {
+            "in": "query",
+            "name": "createdFrom",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "required": true
+          },
+          {
+            "in": "query",
+            "name": "createdTo",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "required": true
+          }
+        ],
+        "operationId": "exportDowntimeSummary"
+      }
+    },
+    "/requests/{requestId}/status": {
+      "patch": {
+        "tags": [
+          "Requests"
+        ],
+        "summary": "Transition request status — assign, start work, or resolve (Technician only)",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MaintenanceRequest"
+                }
+              }
+            },
+            "description": "Request updated"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Invalid transition or missing resolution note"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Unauthenticated"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Forbidden — not TECHNICIAN or not the assignee"
           },
           "404": {
             "content": {
@@ -1126,7 +1540,7 @@
                 }
               }
             },
-            "description": "Not found"
+            "description": "Request not found"
           },
           "409": {
             "content": {
@@ -1136,7 +1550,17 @@
                 }
               }
             },
-            "description": "Conflict — request is not in Open status"
+            "description": "Conflict — request already assigned or invalid state"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Internal server error"
           }
         },
         "parameters": [
@@ -1150,12 +1574,12 @@
             "required": true
           }
         ],
-        "operationId": "assignRequest",
+        "operationId": "patchRequestStatus",
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/AssignRequestBody"
+                "$ref": "#/components/schemas/PatchRequestStatusBody"
               }
             }
           },
@@ -1168,7 +1592,7 @@
         "tags": [
           "Machines"
         ],
-        "summary": "List resolved requests for a machine in reverse chronological order (all roles)",
+        "summary": "Get resolved request history for a machine (all roles)",
         "security": [
           {
             "BearerAuth": []
@@ -1179,11 +1603,11 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/RequestListResponse"
+                  "$ref": "#/components/schemas/MachineHistoryResponse"
                 }
               }
             },
-            "description": "Paginated resolved request history for the machine"
+            "description": "Paginated resolved request history for the machine, reverse chronological"
           },
           "401": {
             "content": {
@@ -1195,16 +1619,6 @@
             },
             "description": "Unauthenticated"
           },
-          "403": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            },
-            "description": "Forbidden"
-          },
           "404": {
             "content": {
               "application/json": {
@@ -1214,6 +1628,16 @@
               }
             },
             "description": "Machine not found"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Internal server error"
           }
         },
         "parameters": [
@@ -1247,109 +1671,12 @@
         "operationId": "getMachineHistory"
       }
     },
-    "/requests/{requestId}/resolve": {
-      "put": {
-        "tags": [
-          "Requests"
-        ],
-        "summary": "Resolve an In Progress request with a mandatory resolution note (assignee Technician only)",
-        "security": [
-          {
-            "BearerAuth": []
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/MaintenanceRequest"
-                }
-              }
-            },
-            "description": "Request resolved"
-          },
-          "400": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            },
-            "description": "Resolution note missing or empty"
-          },
-          "401": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            },
-            "description": "Unauthenticated"
-          },
-          "403": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            },
-            "description": "Forbidden — caller is not the assignee Technician"
-          },
-          "404": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            },
-            "description": "Not found"
-          },
-          "409": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            },
-            "description": "Conflict — request is not In Progress"
-          }
-        },
-        "parameters": [
-          {
-            "in": "path",
-            "name": "requestId",
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            },
-            "required": true
-          }
-        ],
-        "operationId": "resolveRequest",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ResolveRequestBody"
-              }
-            }
-          },
-          "required": true
-        }
-      }
-    },
     "/requests/{requestId}/comments": {
       "get": {
         "tags": [
           "Comments"
         ],
-        "summary": "List all comments on a request in chronological order (all roles)",
+        "summary": "List comments for a request in chronological order (all roles)",
         "security": [
           {
             "BearerAuth": []
@@ -1364,7 +1691,7 @@
                 }
               }
             },
-            "description": "Paginated comment list"
+            "description": "Paginated list of comments"
           },
           "401": {
             "content": {
@@ -1376,16 +1703,6 @@
             },
             "description": "Unauthenticated"
           },
-          "403": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            },
-            "description": "Forbidden"
-          },
           "404": {
             "content": {
               "application/json": {
@@ -1395,6 +1712,16 @@
               }
             },
             "description": "Request not found"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Internal server error"
           }
         },
         "parameters": [
@@ -1442,7 +1769,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Comment"
+                  "$ref": "#/components/schemas/RequestComment"
                 }
               }
             },
@@ -1456,7 +1783,7 @@
                 }
               }
             },
-            "description": "Comment text is empty"
+            "description": "Empty comment text"
           },
           "401": {
             "content": {
@@ -1468,16 +1795,6 @@
             },
             "description": "Unauthenticated"
           },
-          "403": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            },
-            "description": "Forbidden"
-          },
           "404": {
             "content": {
               "application/json": {
@@ -1487,6 +1804,16 @@
               }
             },
             "description": "Request not found"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Internal server error"
           }
         },
         "parameters": [
@@ -1513,12 +1840,12 @@
         }
       }
     },
-    "/machines/{machineId}/deactivate": {
-      "put": {
+    "/api/v1/dashboards/{dashboardId}": {
+      "get": {
         "tags": [
-          "Machines"
+          "Dashboards"
         ],
-        "summary": "Deactivate a machine (Supervisor only); requires explicit confirm flag; warns if open requests exist",
+        "summary": "Retrieve metadata and panel definitions for a specific Grafana dashboard",
         "security": [
           {
             "BearerAuth": []
@@ -1529,21 +1856,11 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Machine"
+                  "$ref": "#/components/schemas/DashboardDetail"
                 }
               }
             },
-            "description": "Machine deactivated"
-          },
-          "400": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            },
-            "description": "confirm flag not set to true"
+            "description": "Dashboard metadata"
           },
           "401": {
             "content": {
@@ -1553,17 +1870,7 @@
                 }
               }
             },
-            "description": "Unauthenticated"
-          },
-          "403": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            },
-            "description": "Forbidden — caller is not a Supervisor"
+            "description": "Unauthorised"
           },
           "404": {
             "content": {
@@ -1573,41 +1880,20 @@
                 }
               }
             },
-            "description": "Not found"
-          },
-          "409": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            },
-            "description": "Machine has open/in-progress requests and confirm was not explicitly set"
+            "description": "Dashboard not found"
           }
         },
         "parameters": [
           {
             "in": "path",
-            "name": "machineId",
+            "name": "dashboardId",
             "schema": {
-              "type": "string",
-              "format": "uuid"
+              "type": "string"
             },
             "required": true
           }
         ],
-        "operationId": "deactivateMachine",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/MachineDeactivateRequest"
-              }
-            }
-          },
-          "required": true
-        }
+        "operationId": "getDashboard"
       }
     }
   },
@@ -1642,7 +1928,471 @@
           }
         }
       },
-      "Comment": {
+      "Machine": {
+        "type": "object",
+        "required": [
+          "machineId",
+          "name",
+          "isActive",
+          "createdAt"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "isActive": {
+            "type": "boolean"
+          },
+          "location": {
+            "type": "string",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "machineId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "deactivatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "assetReference": {
+            "type": "string",
+            "nullable": true
+          },
+          "deactivatedByUserId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          }
+        }
+      },
+      "Priority": {
+        "enum": [
+          "CRITICAL",
+          "MEDIUM",
+          "LOW"
+        ],
+        "type": "string"
+      },
+      "SseEvent": {
+        "type": "object",
+        "required": [
+          "eventType",
+          "payload",
+          "occurredAt"
+        ],
+        "properties": {
+          "payload": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "eventType": {
+            "enum": [
+              "REQUEST_CREATED",
+              "REQUEST_STATUS_CHANGED",
+              "REQUEST_ASSIGNED",
+              "COMMENT_ADDED",
+              "MACHINE_UPDATED"
+            ],
+            "type": "string"
+          },
+          "occurredAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "SlaStatus": {
+        "enum": [
+          "ON_TRACK",
+          "AT_RISK",
+          "BREACHED",
+          "MET"
+        ],
+        "type": "string"
+      },
+      "SloStatus": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "target",
+          "current_burn_rate",
+          "error_budget_remaining_pct",
+          "window_hours"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string",
+            "description": "e.g. api-availability, p95-latency, sse-connection-count"
+          },
+          "status": {
+            "enum": [
+              "ok",
+              "warning",
+              "critical"
+            ],
+            "type": "string"
+          },
+          "target": {
+            "type": "number",
+            "format": "double",
+            "description": "SLO target as a ratio, e.g. 0.995"
+          },
+          "evaluated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "window_hours": {
+            "type": "integer",
+            "description": "Rolling window in hours, e.g. 720 for 30 days"
+          },
+          "current_burn_rate": {
+            "type": "number",
+            "format": "double"
+          },
+          "error_budget_remaining_pct": {
+            "type": "number",
+            "format": "double"
+          }
+        }
+      },
+      "CursorPage": {
+        "type": "object",
+        "required": [
+          "next_cursor",
+          "limit"
+        ],
+        "properties": {
+          "limit": {
+            "type": "integer",
+            "maximum": 200,
+            "minimum": 1
+          },
+          "next_cursor": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Opaque; null on the last page"
+          }
+        }
+      },
+      "SlaOutcome": {
+        "enum": [
+          "MET",
+          "BREACHED",
+          "PENDING"
+        ],
+        "type": "string"
+      },
+      "AlertRecord": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "state",
+          "severity",
+          "fired_at",
+          "created_at"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "state": {
+            "enum": [
+              "firing",
+              "resolved"
+            ],
+            "type": "string"
+          },
+          "labels": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "source": {
+            "enum": [
+              "cloudwatch",
+              "sns",
+              "prometheus"
+            ],
+            "type": "string"
+          },
+          "fired_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "severity": {
+            "enum": [
+              "critical",
+              "warning",
+              "info"
+            ],
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "annotations": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "resolved_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "generator_url": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uri"
+          }
+        }
+      },
+      "InboundAlert": {
+        "type": "object",
+        "required": [
+          "name",
+          "state",
+          "fired_at"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "state": {
+            "enum": [
+              "firing",
+              "resolved"
+            ],
+            "type": "string"
+          },
+          "labels": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "fired_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "severity": {
+            "enum": [
+              "critical",
+              "warning",
+              "info"
+            ],
+            "type": "string"
+          },
+          "annotations": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "resolved_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "generator_url": {
+            "type": "string",
+            "format": "uri"
+          }
+        }
+      },
+      "ScrapeTarget": {
+        "type": "object",
+        "required": [
+          "job",
+          "instance",
+          "state"
+        ],
+        "properties": {
+          "job": {
+            "type": "string",
+            "description": "Prometheus job name, e.g. fixit-spring-boot-api, keycloak"
+          },
+          "state": {
+            "enum": [
+              "up",
+              "down",
+              "unknown"
+            ],
+            "type": "string"
+          },
+          "labels": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "instance": {
+            "type": "string",
+            "description": "host:port of the scrape target"
+          },
+          "last_error": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "last_scrape": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "SystemConfig": {
+        "type": "object",
+        "required": [
+          "configKey",
+          "configValue",
+          "updatedAt",
+          "updatedByUserId"
+        ],
+        "properties": {
+          "configKey": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "configValue": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "updatedByUserId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
+      "PutConfigBody": {
+        "type": "object",
+        "required": [
+          "configs"
+        ],
+        "properties": {
+          "configs": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "configKey",
+                "configValue"
+              ],
+              "properties": {
+                "configKey": {
+                  "type": "string"
+                },
+                "configValue": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      },
+      "RequestStatus": {
+        "enum": [
+          "OPEN",
+          "IN_PROGRESS",
+          "RESOLVED"
+        ],
+        "type": "string"
+      },
+      "DashboardPanel": {
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "type"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "type": {
+            "type": "string",
+            "description": "e.g. graph, stat, table, gauge"
+          },
+          "title": {
+            "type": "string"
+          },
+          "targets": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          },
+          "description": {
+            "type": "string"
+          }
+        }
+      },
+      "HealthResponse": {
+        "type": "object",
+        "required": [
+          "status",
+          "components"
+        ],
+        "properties": {
+          "status": {
+            "enum": [
+              "healthy",
+              "degraded",
+              "unhealthy"
+            ],
+            "type": "string"
+          },
+          "checked_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "components": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ComponentHealth"
+            }
+          }
+        }
+      },
+      "RequestComment": {
         "type": "object",
         "required": [
           "commentId",
@@ -1681,298 +2431,152 @@
           }
         }
       },
-      "Machine": {
+      "ComponentHealth": {
         "type": "object",
         "required": [
-          "machineId",
           "name",
-          "active",
-          "createdAt"
+          "status"
         ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "e.g. prometheus, grafana, alertmanager"
+          },
+          "status": {
+            "enum": [
+              "healthy",
+              "degraded",
+              "unhealthy"
+            ],
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          }
+        }
+      },
+      "DashboardDetail": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/DashboardSummary"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "panels": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/DashboardPanel"
+                }
+              },
+              "variables": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          }
+        ]
+      },
+      "SloListResponse": {
+        "type": "object",
+        "required": [
+          "data",
+          "page"
+        ],
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SloStatus"
+            }
+          },
+          "page": {
+            "$ref": "#/components/schemas/CursorPage"
+          }
+        }
+      },
+      "DashboardSummary": {
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "uid",
+          "url"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "uid": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string",
+            "format": "uri"
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "title": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "PatchMachineBody": {
+        "type": "object",
         "properties": {
           "name": {
             "type": "string",
             "minLength": 1
           },
-          "active": {
+          "isActive": {
             "type": "boolean"
           },
           "location": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "createdAt": {
             "type": "string",
-            "format": "date-time"
-          },
-          "machineId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "deactivatedAt": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "format": "date-time"
+            "nullable": true
           },
           "assetReference": {
-            "type": [
-              "string",
-              "null"
-            ]
+            "type": "string",
+            "nullable": true
           },
-          "deactivatedByUserId": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "format": "uuid"
+          "forceDeactivate": {
+            "type": "boolean",
+            "description": "Must be true to deactivate a machine that has open or in-progress requests"
           }
         }
       },
-      "Priority": {
-        "enum": [
-          "Critical",
-          "Medium",
-          "Low"
-        ],
-        "type": "string"
-      },
-      "ClockMode": {
-        "enum": [
-          "continuous",
-          "shift_hours_only"
-        ],
-        "type": "string"
-      },
-      "SlaConfig": {
+      "AlertListResponse": {
         "type": "object",
         "required": [
-          "configId",
-          "priorityLevel",
-          "slaHours",
-          "clockMode",
-          "updatedAt",
-          "updatedByUserId"
+          "data",
+          "page"
         ],
         "properties": {
-          "configId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "slaHours": {
-            "type": "number",
-            "format": "decimal"
-          },
-          "clockMode": {
-            "$ref": "#/components/schemas/ClockMode"
-          },
-          "updatedAt": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "shiftEndTime": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "description": "HH:mm format"
-          },
-          "priorityLevel": {
-            "$ref": "#/components/schemas/Priority"
-          },
-          "shiftStartTime": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "description": "HH:mm format"
-          },
-          "updatedByUserId": {
-            "type": "string",
-            "format": "uuid"
-          }
-        }
-      },
-      "SlaStatus": {
-        "enum": [
-          "ok",
-          "at_risk",
-          "breached",
-          "resolved_within_sla",
-          "resolved_breached"
-        ],
-        "type": "string"
-      },
-      "CursorPage": {
-        "type": "object",
-        "required": [
-          "next_cursor",
-          "limit"
-        ],
-        "properties": {
-          "limit": {
-            "type": "integer",
-            "maximum": 200,
-            "minimum": 1
-          },
-          "next_cursor": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "description": "Opaque; null on the last page"
-          }
-        }
-      },
-      "ExportRequest": {
-        "type": "object",
-        "required": [
-          "requestId",
-          "machineId",
-          "machineName",
-          "submittedByUserId",
-          "priority",
-          "status",
-          "slaBreached",
-          "outOfHours",
-          "createdAt"
-        ],
-        "properties": {
-          "status": {
-            "$ref": "#/components/schemas/RequestStatus"
-          },
-          "priority": {
-            "$ref": "#/components/schemas/Priority"
-          },
-          "createdAt": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "machineId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "requestId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "assignedAt": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "format": "date-time"
-          },
-          "outOfHours": {
-            "type": "boolean"
-          },
-          "resolvedAt": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "format": "date-time"
-          },
-          "description": {
-            "type": "string"
-          },
-          "machineName": {
-            "type": "string"
-          },
-          "slaBreached": {
-            "type": "boolean"
-          },
-          "slaTargetAt": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "inProgressAt": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "format": "date-time"
-          },
-          "resolutionNote": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "downtimeMinutes": {
-            "type": [
-              "integer",
-              "null"
-            ]
-          },
-          "assignedToUserId": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "format": "uuid"
-          },
-          "submittedByUserId": {
-            "type": "string",
-            "format": "uuid"
-          }
-        }
-      },
-      "RequestStatus": {
-        "enum": [
-          "Open",
-          "In Progress",
-          "Resolved"
-        ],
-        "type": "string"
-      },
-      "DashboardSummary": {
-        "type": "object",
-        "required": [
-          "openCount",
-          "inProgressCount",
-          "resolvedCount",
-          "slaBreachedCount",
-          "slaAtRiskCount",
-          "recentRequests"
-        ],
-        "properties": {
-          "openCount": {
-            "type": "integer"
-          },
-          "resolvedCount": {
-            "type": "integer"
-          },
-          "recentRequests": {
+          "data": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/MaintenanceRequest"
+              "$ref": "#/components/schemas/AlertRecord"
             }
           },
-          "slaAtRiskCount": {
-            "type": "integer"
-          },
-          "inProgressCount": {
-            "type": "integer"
-          },
-          "slaBreachedCount": {
-            "type": "integer"
+          "page": {
+            "$ref": "#/components/schemas/CursorPage"
           }
         }
-      },
-      "StartRequestBody": {
-        "type": "object",
-        "properties": {},
-        "description": "Transitions request to In Progress (actor must be assignee)"
-      },
-      "AssignRequestBody": {
-        "type": "object",
-        "properties": {},
-        "description": "Assigns the request to the authenticated technician (no body fields required; actor derived from JWT)"
       },
       "CreateCommentBody": {
         "type": "object",
@@ -1983,6 +2587,26 @@
           "commentText": {
             "type": "string",
             "minLength": 1
+          }
+        }
+      },
+      "CreateMachineBody": {
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "location": {
+            "type": "string",
+            "nullable": true
+          },
+          "assetReference": {
+            "type": "string",
+            "nullable": true
           }
         }
       },
@@ -2007,7 +2631,76 @@
           }
         }
       },
-      "DowntimeSummaryRow": {
+      "DashboardResponse": {
+        "type": "object",
+        "required": [
+          "statusCounts",
+          "overdueRequests"
+        ],
+        "properties": {
+          "statusCounts": {
+            "type": "object",
+            "required": [
+              "open",
+              "inProgress",
+              "resolved"
+            ],
+            "properties": {
+              "open": {
+                "type": "integer"
+              },
+              "resolved": {
+                "type": "integer"
+              },
+              "inProgress": {
+                "type": "integer"
+              }
+            }
+          },
+          "overdueRequests": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "requestId",
+                "machineName",
+                "priority",
+                "description",
+                "createdAt",
+                "elapsedMinutes",
+                "referenceNumber"
+              ],
+              "properties": {
+                "priority": {
+                  "$ref": "#/components/schemas/Priority"
+                },
+                "createdAt": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "requestId": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "description": {
+                  "type": "string"
+                },
+                "machineName": {
+                  "type": "string"
+                },
+                "elapsedMinutes": {
+                  "type": "integer"
+                },
+                "referenceNumber": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Requests in OPEN status for more than 24 hours"
+          }
+        }
+      },
+      "DowntimeReportRow": {
         "type": "object",
         "required": [
           "machineId",
@@ -2024,12 +2717,9 @@
           "machineName": {
             "type": "string"
           },
-          "periodIncomplete": {
-            "type": "boolean",
-            "description": "True when the requested period includes the current month"
-          },
           "totalDowntimeHours": {
-            "type": "number"
+            "type": "number",
+            "format": "double"
           },
           "resolvedRequestCount": {
             "type": "integer"
@@ -2045,14 +2735,17 @@
           "requestId",
           "machineId",
           "machineName",
-          "submittedByUserId",
           "description",
           "priority",
           "status",
-          "slaTargetAt",
-          "slaBreached",
-          "outOfHours",
-          "createdAt"
+          "createdByUserId",
+          "createdByDisplayName",
+          "createdAt",
+          "slaDeadlineAt",
+          "outOfHoursFlag",
+          "referenceNumber",
+          "slaStatus",
+          "slaThresholdMinutes"
         ],
         "properties": {
           "status": {
@@ -2077,21 +2770,18 @@
             "$ref": "#/components/schemas/SlaStatus"
           },
           "assignedAt": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "format": "date-time"
-          },
-          "outOfHours": {
-            "type": "boolean"
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
           },
           "resolvedAt": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "format": "date-time"
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "slaOutcome": {
+            "$ref": "#/components/schemas/SlaOutcome",
+            "nullable": true
           },
           "description": {
             "type": "string"
@@ -2099,60 +2789,114 @@
           "machineName": {
             "type": "string"
           },
-          "slaBreached": {
+          "slaDeadlineAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "workStartedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "outOfHoursFlag": {
             "type": "boolean"
           },
-          "slaTargetAt": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "inProgressAt": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "format": "date-time"
-          },
           "resolutionNote": {
-            "type": [
-              "string",
-              "null"
-            ]
+            "type": "string",
+            "nullable": true
           },
-          "downtimeMinutes": {
-            "type": [
-              "integer",
-              "null"
-            ]
+          "createdByUserId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "referenceNumber": {
+            "type": "string"
           },
           "assignedToUserId": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "format": "uuid"
-          },
-          "submittedByUserId": {
             "type": "string",
-            "format": "uuid"
+            "format": "uuid",
+            "nullable": true
+          },
+          "slaThresholdMinutes": {
+            "type": "integer"
+          },
+          "createdByDisplayName": {
+            "type": "string"
           },
           "assignedToDisplayName": {
-            "type": [
-              "string",
-              "null"
-            ]
+            "type": "string",
+            "nullable": true
           }
         }
       },
-      "ResolveRequestBody": {
+      "StatusHistoryEntry": {
         "type": "object",
         "required": [
-          "resolutionNote"
+          "historyId",
+          "requestId",
+          "toStatus",
+          "transitionedByUserId",
+          "transitionedByRole",
+          "transitionedAt"
         ],
         "properties": {
-          "resolutionNote": {
+          "notes": {
             "type": "string",
-            "minLength": 1
+            "nullable": true
+          },
+          "toStatus": {
+            "type": "string"
+          },
+          "historyId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "requestId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "fromStatus": {
+            "type": "string",
+            "nullable": true
+          },
+          "transitionedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "transitionedByRole": {
+            "type": "string"
+          },
+          "transitionedByUserId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
+      "AlertWebhookPayload": {
+        "type": "object",
+        "required": [
+          "source",
+          "alerts"
+        ],
+        "properties": {
+          "alerts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/InboundAlert"
+            }
+          },
+          "source": {
+            "enum": [
+              "cloudwatch",
+              "sns",
+              "prometheus"
+            ],
+            "type": "string",
+            "description": "Origin of the alert notification"
+          },
+          "correlation_id": {
+            "type": "string",
+            "format": "uuid"
           }
         }
       },
@@ -2166,11 +2910,51 @@
           "data": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/Comment"
+              "$ref": "#/components/schemas/RequestComment"
             }
           },
           "page": {
             "$ref": "#/components/schemas/CursorPage"
+          }
+        }
+      },
+      "DeactivationWarning": {
+        "type": "object",
+        "required": [
+          "machineId",
+          "openRequestCount",
+          "openRequests"
+        ],
+        "properties": {
+          "machineId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "openRequests": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "requestId",
+                "referenceNumber",
+                "status"
+              ],
+              "properties": {
+                "status": {
+                  "$ref": "#/components/schemas/RequestStatus"
+                },
+                "requestId": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "referenceNumber": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "openRequestCount": {
+            "type": "integer"
           }
         }
       },
@@ -2210,144 +2994,7 @@
           }
         }
       },
-      "MachineCreateRequest": {
-        "type": "object",
-        "required": [
-          "name"
-        ],
-        "properties": {
-          "name": {
-            "type": "string",
-            "minLength": 1
-          },
-          "location": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "assetReference": {
-            "type": [
-              "string",
-              "null"
-            ]
-          }
-        }
-      },
-      "MachineUpdateRequest": {
-        "type": "object",
-        "required": [
-          "name"
-        ],
-        "properties": {
-          "name": {
-            "type": "string",
-            "minLength": 1
-          },
-          "location": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "assetReference": {
-            "type": [
-              "string",
-              "null"
-            ]
-          }
-        }
-      },
-      "SlaConfigListResponse": {
-        "type": "object",
-        "required": [
-          "data"
-        ],
-        "properties": {
-          "data": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/SlaConfig"
-            }
-          }
-        }
-      },
-      "SlaConfigUpdateRequest": {
-        "type": "object",
-        "required": [
-          "priorityLevel",
-          "slaHours",
-          "clockMode"
-        ],
-        "properties": {
-          "slaHours": {
-            "type": "number",
-            "format": "decimal",
-            "minimum": 0.1
-          },
-          "clockMode": {
-            "$ref": "#/components/schemas/ClockMode"
-          },
-          "shiftEndTime": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "description": "HH:mm format"
-          },
-          "priorityLevel": {
-            "$ref": "#/components/schemas/Priority"
-          },
-          "shiftStartTime": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "description": "HH:mm format"
-          }
-        }
-      },
-      "DowntimeSummaryResponse": {
-        "type": "object",
-        "required": [
-          "data",
-          "periodStart",
-          "periodEnd",
-          "periodIncomplete"
-        ],
-        "properties": {
-          "data": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/DowntimeSummaryRow"
-            }
-          },
-          "periodEnd": {
-            "type": "string",
-            "format": "date"
-          },
-          "periodStart": {
-            "type": "string",
-            "format": "date"
-          },
-          "periodIncomplete": {
-            "type": "boolean"
-          }
-        }
-      },
-      "MachineDeactivateRequest": {
-        "type": "object",
-        "required": [
-          "confirm"
-        ],
-        "properties": {
-          "confirm": {
-            "type": "boolean",
-            "description": "Must be true to proceed with deactivation"
-          }
-        }
-      },
-      "ExportRequestListResponse": {
+      "DashboardListResponse": {
         "type": "object",
         "required": [
           "data",
@@ -2357,7 +3004,158 @@
           "data": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/ExportRequest"
+              "$ref": "#/components/schemas/DashboardSummary"
+            }
+          },
+          "page": {
+            "$ref": "#/components/schemas/CursorPage"
+          }
+        }
+      },
+      "DowntimeReportResponse": {
+        "type": "object",
+        "required": [
+          "period",
+          "periodIncomplete",
+          "rows"
+        ],
+        "properties": {
+          "rows": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DowntimeReportRow"
+            }
+          },
+          "period": {
+            "type": "object",
+            "required": [
+              "year",
+              "month"
+            ],
+            "properties": {
+              "year": {
+                "type": "integer"
+              },
+              "month": {
+                "type": "integer",
+                "maximum": 12,
+                "minimum": 1
+              }
+            }
+          },
+          "periodIncomplete": {
+            "type": "boolean",
+            "description": "True when the requested period is the current month and data is still accumulating"
+          }
+        }
+      },
+      "ExportRequestsResponse": {
+        "type": "object",
+        "required": [
+          "data",
+          "page"
+        ],
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MaintenanceRequest"
+            }
+          },
+          "page": {
+            "$ref": "#/components/schemas/CursorPage"
+          }
+        }
+      },
+      "MachineHistoryResponse": {
+        "type": "object",
+        "required": [
+          "data",
+          "page"
+        ],
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MaintenanceRequest"
+            }
+          },
+          "page": {
+            "$ref": "#/components/schemas/CursorPage"
+          }
+        }
+      },
+      "PatchRequestStatusBody": {
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "properties": {
+          "notes": {
+            "type": "string",
+            "nullable": true
+          },
+          "status": {
+            "$ref": "#/components/schemas/RequestStatus"
+          },
+          "resolutionNote": {
+            "type": "string",
+            "nullable": true
+          },
+          "assignedToUserId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "assignedToDisplayName": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "ScrapeTargetListResponse": {
+        "type": "object",
+        "required": [
+          "data",
+          "page"
+        ],
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ScrapeTarget"
+            }
+          },
+          "page": {
+            "$ref": "#/components/schemas/CursorPage"
+          }
+        }
+      },
+      "SystemConfigListResponse": {
+        "type": "object",
+        "required": [
+          "data"
+        ],
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SystemConfig"
+            }
+          }
+        }
+      },
+      "ExportDowntimeSummaryResponse": {
+        "type": "object",
+        "required": [
+          "data",
+          "page"
+        ],
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DowntimeReportRow"
             }
           },
           "page": {

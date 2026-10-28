@@ -1,148 +1,349 @@
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
 -- ============================================================
--- FixIt API Service — PostgreSQL DDL
--- Region: eu-west-1 (all data residency requirements met)
+-- ENUM TYPES
 -- ============================================================
+CREATE TYPE request_status AS ENUM ('OPEN', 'IN_PROGRESS', 'RESOLVED');
+CREATE TYPE request_priority AS ENUM ('CRITICAL', 'MEDIUM', 'LOW');
+CREATE TYPE sla_outcome AS ENUM ('MET', 'BREACHED', 'PENDING');
+CREATE TYPE sla_clock_mode AS ENUM ('CONTINUOUS', 'SHIFT_HOURS_ONLY');
+
+-- ============================================================
+-- MACHINE
+-- ============================================================
+CREATE TABLE machine (
+    machine_id              UUID            NOT NULL DEFAULT uuid_generate_v4(),
+    name                    TEXT            NOT NULL,
+    asset_reference         TEXT,
+    location                TEXT,
+    is_active               BOOLEAN         NOT NULL DEFAULT TRUE,
+    created_at              TIMESTAMPTZ     NOT NULL DEFAULT NOW(),
+    updated_at              TIMESTAMPTZ     NOT NULL DEFAULT NOW(),
+    deactivated_at          TIMESTAMPTZ,
+    deactivated_by_user_id  UUID,
+    CONSTRAINT pk_machine PRIMARY KEY (machine_id)
+);
+
+CREATE INDEX idx_machine_is_active ON machine (is_active);
+CREATE INDEX idx_machine_name ON machine (name);
+
+COMMENT ON TABLE machine IS 'Master machine register. Soft-delete via is_active flag. Classification: public.';
+
+-- ============================================================
+-- MAINTENANCE REQUEST
+-- ============================================================
+CREATE TABLE maintenance_request (
+    request_id              UUID            NOT NULL DEFAULT uuid_generate_v4(),
+    machine_id              UUID            NOT NULL,
+    description             TEXT            NOT NULL,
+    priority                request_priority NOT NULL,
+    status                  request_status  NOT NULL DEFAULT 'OPEN',
+    created_by_user_id      UUID            NOT NULL,
+    created_by_display_name TEXT            NOT NULL,
+    assigned_to_user_id     UUID,
+    assigned_to_display_name TEXT,
+    created_at              TIMESTAMPTZ     NOT NULL DEFAULT NOW(),
+    updated_at              TIMESTAMPTZ     NOT NULL DEFAULT NOW(),
+    assigned_at             TIMESTAMPTZ,
+    work_started_at         TIMESTAMPTZ,
+    resolved_at             TIMESTAMPTZ,
+    resolution_note         TEXT,
+    sla_deadline_at         TIMESTAMPTZ     NOT NULL,
+    sla_outcome             sla_outcome,
+    out_of_hours_flag       BOOLEAN         NOT NULL DEFAULT FALSE,
+    reference_number        TEXT            NOT NULL,
+    CONSTRAINT pk_maintenance_request PRIMARY KEY (request_id),
+    CONSTRAINT uq_maintenance_request_reference UNIQUE (reference_number),
+    CONSTRAINT fk_maintenance_request_machine FOREIGN KEY (machine_id) REFERENCES machine (machine_id)
+);
+
+CREATE INDEX idx_mr_machine_id ON maintenance_request (machine_id);
+CREATE INDEX idx_mr_status ON maintenance_request (status);
+CREATE INDEX idx_mr_priority ON maintenance_request (priority);
+CREATE INDEX idx_mr_created_by_user_id ON maintenance_request (created_by_user_id);
+CREATE INDEX idx_mr_assigned_to_user_id ON maintenance_request (assigned_to_user_id);
+CREATE INDEX idx_mr_created_at ON maintenance_request (created_at);
+CREATE INDEX idx_mr_status_priority_created ON maintenance_request (status, priority, created_at);
+CREATE INDEX idx_mr_resolved_at ON maintenance_request (resolved_at);
+CREATE INDEX idx_mr_sla_deadline_at ON maintenance_request (sla_deadline_at);
+
+COMMENT ON TABLE maintenance_request IS 'Core request entity. PII fields: created_by_user_id, created_by_display_name, assigned_to_user_id, assigned_to_display_name. Classification: confidential. Retention: 7 years from resolved_at.';
+
+-- ============================================================
+-- REQUEST STATUS HISTORY (immutable audit log)
+-- ============================================================
+CREATE TABLE request_status_history (
+    history_id              UUID            NOT NULL DEFAULT uuid_generate_v4(),
+    request_id              UUID            NOT NULL,
+    from_status             TEXT,
+    to_status               TEXT            NOT NULL,
+    transitioned_by_user_id UUID            NOT NULL,
+    transitioned_by_role    TEXT            NOT NULL,
+    transitioned_at         TIMESTAMPTZ     NOT NULL DEFAULT NOW(),
+    notes                   TEXT,
+    created_at              TIMESTAMPTZ     NOT NULL DEFAULT NOW(),
+    updated_at              TIMESTAMPTZ     NOT NULL DEFAULT NOW(),
+    CONSTRAINT pk_request_status_history PRIMARY KEY (history_id),
+    CONSTRAINT fk_rsh_request FOREIGN KEY (request_id) REFERENCES maintenance_request (request_id)
+);
+
+CREATE INDEX idx_rsh_request_id ON request_status_history (request_id);
+CREATE INDEX idx_rsh_transitioned_at ON request_status_history (transitioned_at);
+CREATE INDEX idx_rsh_transitioned_by_user_id ON request_status_history (transitioned_by_user_id);
+
+COMMENT ON TABLE request_status_history IS 'Immutable audit log of all status transitions. No UPDATE or DELETE permitted. PII: transitioned_by_user_id. Classification: confidential.';
+
+-- ============================================================
+-- REQUEST COMMENT (append-only)
+-- ============================================================
+CREATE TABLE request_comment (
+    comment_id              UUID            NOT NULL DEFAULT uuid_generate_v4(),
+    request_id              UUID            NOT NULL,
+    author_user_id          UUID            NOT NULL,
+    author_display_name     TEXT            NOT NULL,
+    author_role             TEXT            NOT NULL,
+    comment_text            TEXT            NOT NULL,
+    created_at              TIMESTAMPTZ     NOT NULL DEFAULT NOW(),
+    updated_at              TIMESTAMPTZ     NOT NULL DEFAULT NOW(),
+    CONSTRAINT pk_request_comment PRIMARY KEY (comment_id),
+    CONSTRAINT fk_rc_request FOREIGN KEY (request_id) REFERENCES maintenance_request (request_id)
+);
+
+CREATE INDEX idx_rc_request_id ON request_comment (request_id);
+CREATE INDEX idx_rc_created_at ON request_comment (request_id, created_at);
+CREATE INDEX idx_rc_author_user_id ON request_comment (author_user_id);
+
+COMMENT ON TABLE request_comment IS 'Append-only comment thread per request. No UPDATE or DELETE permitted. PII: author_user_id, author_display_name. Classification: confidential.';
+
+-- ============================================================
+-- SLA RECORD
+-- ============================================================
+CREATE TABLE sla_record (
+    sla_record_id           UUID            NOT NULL DEFAULT uuid_generate_v4(),
+    request_id              UUID            NOT NULL,
+    priority                request_priority NOT NULL,
+    sla_threshold_minutes   INTEGER         NOT NULL,
+    sla_deadline_at         TIMESTAMPTZ     NOT NULL,
+    sla_clock_mode          sla_clock_mode  NOT NULL DEFAULT 'CONTINUOUS',
+    sla_outcome             sla_outcome,
+    breach_duration_minutes INTEGER,
+    evaluated_at            TIMESTAMPTZ,
+    created_at              TIMESTAMPTZ     NOT NULL DEFAULT NOW(),
+    updated_at              TIMESTAMPTZ     NOT NULL DEFAULT NOW(),
+    CONSTRAINT pk_sla_record PRIMARY KEY (sla_record_id),
+    CONSTRAINT uq_sla_record_request UNIQUE (request_id),
+    CONSTRAINT fk_sla_request FOREIGN KEY (request_id) REFERENCES maintenance_request (request_id)
+);
+
+CREATE INDEX idx_sla_request_id ON sla_record (request_id);
+CREATE INDEX idx_sla_deadline_at ON sla_record (sla_deadline_at);
+CREATE INDEX idx_sla_outcome ON sla_record (sla_outcome);
+
+COMMENT ON TABLE sla_record IS 'SLA calculation record per request. Classification: confidential.';
+
+-- ============================================================
+-- SYSTEM CONFIG
+-- ============================================================
+CREATE TABLE system_config (
+    config_key              TEXT            NOT NULL,
+    config_value            TEXT            NOT NULL,
+    description             TEXT,
+    updated_at              TIMESTAMPTZ     NOT NULL DEFAULT NOW(),
+    updated_by_user_id      UUID            NOT NULL,
+    created_at              TIMESTAMPTZ     NOT NULL DEFAULT NOW(),
+    CONSTRAINT pk_system_config PRIMARY KEY (config_key)
+);
+
+COMMENT ON TABLE system_config IS 'Runtime configuration: SLA thresholds, shift hours, SLA clock mode. PII: updated_by_user_id. Classification: public.';
+
+-- Seed default config keys
+INSERT INTO system_config (config_key, config_value, description, updated_by_user_id)
+VALUES
+  ('sla.critical.threshold_minutes', '60',  'SLA threshold for CRITICAL priority requests in minutes', uuid_generate_v4()),
+  ('sla.medium.threshold_minutes',   '240', 'SLA threshold for MEDIUM priority requests in minutes',   uuid_generate_v4()),
+  ('sla.low.threshold_minutes',      '480', 'SLA threshold for LOW priority requests in minutes',      uuid_generate_v4()),
+  ('sla.clock_mode',                 'CONTINUOUS', 'SLA clock mode: CONTINUOUS or SHIFT_HOURS_ONLY',  uuid_generate_v4()),
+  ('shift.start_time',               '06:00', 'Shift start time in HH:MM (local)',                    uuid_generate_v4()),
+  ('shift.end_time',                 '22:00', 'Shift end time in HH:MM (local)',                      uuid_generate_v4()),
+  ('shift.timezone',                 'Europe/London', 'Timezone for shift hours calculation',         uuid_generate_v4()),
+  ('overdue.threshold_minutes',      '1440', 'Minutes after which an OPEN request is flagged overdue (default 24h)', uuid_generate_v4()),
+  ('sla.at_risk.lead_minutes',       '15',   'Minutes before SLA breach to flag as AT_RISK',          uuid_generate_v4())
+ON CONFLICT (config_key) DO NOTHING;
+
+-- ============================================================
+-- CONFIG CHANGE LOG (immutable audit)
+-- ============================================================
+CREATE TABLE config_change_log (
+    change_id               UUID            NOT NULL DEFAULT uuid_generate_v4(),
+    config_key              TEXT            NOT NULL,
+    old_value               TEXT,
+    new_value               TEXT            NOT NULL,
+    changed_by_user_id      UUID            NOT NULL,
+    changed_at              TIMESTAMPTZ     NOT NULL DEFAULT NOW(),
+    created_at              TIMESTAMPTZ     NOT NULL DEFAULT NOW(),
+    updated_at              TIMESTAMPTZ     NOT NULL DEFAULT NOW(),
+    CONSTRAINT pk_config_change_log PRIMARY KEY (change_id)
+);
+
+CREATE INDEX idx_ccl_config_key ON config_change_log (config_key);
+CREATE INDEX idx_ccl_changed_at ON config_change_log (changed_at);
+CREATE INDEX idx_ccl_changed_by ON config_change_log (changed_by_user_id);
+
+COMMENT ON TABLE config_change_log IS 'Immutable audit log of all system_config changes. No UPDATE or DELETE permitted. PII: changed_by_user_id. Classification: confidential.';
+
+
+-- prometheus-grafana owns its own operational metadata tables
+-- These are separate from the Aurora PostgreSQL instance used by fixit-spring-boot-api;
+-- they reside in a dedicated 'observability' schema within the same Aurora cluster.
 
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE EXTENSION IF NOT EXISTS "pg_trgm";
 
--- ------------------------------------------------------------
--- users
--- Classification: confidential (display_name is PII)
--- ------------------------------------------------------------
-CREATE TABLE users (
-    user_id             UUID            NOT NULL DEFAULT uuid_generate_v4(),
-    display_name        TEXT            NOT NULL,  -- PII: data minimisation policy applies
-    role                TEXT            NOT NULL CHECK (role IN ('Operator','Technician','Supervisor')),
-    active              BOOLEAN         NOT NULL DEFAULT TRUE,
-    created_at          TIMESTAMPTZ     NOT NULL DEFAULT now(),
-    updated_at          TIMESTAMPTZ     NOT NULL DEFAULT now(),
-    last_login_at       TIMESTAMPTZ,
-    anonymised_at       TIMESTAMPTZ,
-    CONSTRAINT pk_users PRIMARY KEY (user_id)
+CREATE SCHEMA IF NOT EXISTS observability;
+
+-- -----------------------------------------------------------------------
+-- alert_record
+-- Persists every inbound alert notification received via the webhook
+-- endpoint (from CloudWatch Alarms forwarded through SNS, or from
+-- Prometheus Alertmanager). Immutable once written; state transitions
+-- are appended as new rows via alert_state_transition.
+-- -----------------------------------------------------------------------
+CREATE TABLE observability.alert_record (
+    id                UUID        NOT NULL DEFAULT uuid_generate_v4(),
+    name              TEXT        NOT NULL,
+    state             TEXT        NOT NULL CHECK (state IN ('firing','resolved')),
+    severity          TEXT        NOT NULL CHECK (severity IN ('critical','warning','info')),
+    source            TEXT        NOT NULL CHECK (source IN ('cloudwatch','sns','prometheus')),
+    fired_at          TIMESTAMPTZ NOT NULL,
+    resolved_at       TIMESTAMPTZ,
+    labels            JSONB       NOT NULL DEFAULT '{}',
+    annotations       JSONB       NOT NULL DEFAULT '{}',
+    generator_url     TEXT,
+    created_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CONSTRAINT pk_alert_record PRIMARY KEY (id)
 );
 
-CREATE INDEX idx_users_role ON users (role);
-CREATE INDEX idx_users_active ON users (active);
+CREATE INDEX idx_alert_record_state       ON observability.alert_record (state);
+CREATE INDEX idx_alert_record_severity    ON observability.alert_record (severity);
+CREATE INDEX idx_alert_record_fired_at    ON observability.alert_record (fired_at DESC);
+CREATE INDEX idx_alert_record_name_trgm   ON observability.alert_record USING gin (name gin_trgm_ops);
+CREATE INDEX idx_alert_record_labels      ON observability.alert_record USING gin (labels);
 
--- ------------------------------------------------------------
--- machines
--- Classification: internal
--- ------------------------------------------------------------
-CREATE TABLE machines (
-    machine_id              UUID        NOT NULL DEFAULT uuid_generate_v4(),
-    name                    TEXT        NOT NULL CHECK (char_length(name) > 0),
-    asset_reference         TEXT,
-    location                TEXT,
-    active                  BOOLEAN     NOT NULL DEFAULT TRUE,
-    created_at              TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at              TIMESTAMPTZ NOT NULL DEFAULT now(),
-    deactivated_at          TIMESTAMPTZ,
-    deactivated_by_user_id  UUID        REFERENCES users (user_id),
-    CONSTRAINT pk_machines PRIMARY KEY (machine_id)
+COMMENT ON TABLE observability.alert_record IS
+    'Immutable log of every alert notification received. Retention: 90 days operational; purge via scheduled job.';
+
+-- -----------------------------------------------------------------------
+-- alert_state_transition
+-- Append-only audit trail of every state change for an alert_record.
+-- -----------------------------------------------------------------------
+CREATE TABLE observability.alert_state_transition (
+    id                UUID        NOT NULL DEFAULT uuid_generate_v4(),
+    alert_record_id   UUID        NOT NULL,
+    from_state        TEXT,
+    to_state          TEXT        NOT NULL CHECK (to_state IN ('firing','resolved')),
+    transitioned_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+    created_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CONSTRAINT pk_alert_state_transition PRIMARY KEY (id),
+    CONSTRAINT fk_ast_alert_record FOREIGN KEY (alert_record_id)
+        REFERENCES observability.alert_record (id) ON DELETE CASCADE
 );
 
-CREATE INDEX idx_machines_active ON machines (active);
-CREATE INDEX idx_machines_name_trgm ON machines USING gin (name gin_trgm_ops);
-CREATE INDEX idx_machines_deactivated_by ON machines (deactivated_by_user_id) WHERE deactivated_by_user_id IS NOT NULL;
+CREATE INDEX idx_ast_alert_record_id ON observability.alert_state_transition (alert_record_id);
+CREATE INDEX idx_ast_transitioned_at ON observability.alert_state_transition (transitioned_at DESC);
 
--- ------------------------------------------------------------
--- sla_config
--- Classification: internal
--- One row per priority level; upserted by Supervisor.
--- ------------------------------------------------------------
-CREATE TABLE sla_config (
-    config_id           UUID            NOT NULL DEFAULT uuid_generate_v4(),
-    priority_level      TEXT            NOT NULL CHECK (priority_level IN ('Critical','Medium','Low')),
-    sla_hours           NUMERIC(6,2)    NOT NULL CHECK (sla_hours > 0),
-    clock_mode          TEXT            NOT NULL CHECK (clock_mode IN ('continuous','shift_hours_only')),
-    shift_start_time    TEXT,           -- HH:mm
-    shift_end_time      TEXT,           -- HH:mm
-    updated_at          TIMESTAMPTZ     NOT NULL DEFAULT now(),
-    updated_by_user_id  UUID            NOT NULL REFERENCES users (user_id),
-    created_at          TIMESTAMPTZ     NOT NULL DEFAULT now(),
-    CONSTRAINT pk_sla_config PRIMARY KEY (config_id),
-    CONSTRAINT uq_sla_config_priority UNIQUE (priority_level)
+-- -----------------------------------------------------------------------
+-- slo_definition
+-- Stores the definition of each SLO tracked by the observability stack.
+-- -----------------------------------------------------------------------
+CREATE TABLE observability.slo_definition (
+    id                TEXT        NOT NULL,
+    name              TEXT        NOT NULL,
+    description       TEXT,
+    target_ratio      NUMERIC(6,5) NOT NULL CHECK (target_ratio > 0 AND target_ratio <= 1),
+    window_hours      INTEGER     NOT NULL DEFAULT 720,
+    metric_query      TEXT        NOT NULL,
+    is_active         BOOLEAN     NOT NULL DEFAULT TRUE,
+    created_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CONSTRAINT pk_slo_definition PRIMARY KEY (id)
 );
 
-CREATE INDEX idx_sla_config_priority ON sla_config (priority_level);
-CREATE INDEX idx_sla_config_updated_by ON sla_config (updated_by_user_id);
+CREATE INDEX idx_slo_definition_is_active ON observability.slo_definition (is_active);
 
--- ------------------------------------------------------------
--- maintenance_requests
--- Classification: internal
--- Retention: 7 years from resolved_at (enforced via lifecycle policy)
--- ------------------------------------------------------------
-CREATE TABLE maintenance_requests (
-    request_id              UUID        NOT NULL DEFAULT uuid_generate_v4(),
-    machine_id              UUID        NOT NULL REFERENCES machines (machine_id),
-    submitted_by_user_id    UUID        NOT NULL REFERENCES users (user_id),
-    assigned_to_user_id     UUID        REFERENCES users (user_id),
-    description             TEXT        NOT NULL CHECK (char_length(description) > 0),
-    priority                TEXT        NOT NULL CHECK (priority IN ('Critical','Medium','Low')),
-    status                  TEXT        NOT NULL DEFAULT 'Open' CHECK (status IN ('Open','In Progress','Resolved')),
-    sla_target_at           TIMESTAMPTZ NOT NULL,
-    sla_breached            BOOLEAN     NOT NULL DEFAULT FALSE,
-    out_of_hours            BOOLEAN     NOT NULL DEFAULT FALSE,
-    resolution_note         TEXT,
-    created_at              TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at              TIMESTAMPTZ NOT NULL DEFAULT now(),
-    assigned_at             TIMESTAMPTZ,
-    in_progress_at          TIMESTAMPTZ,
-    resolved_at             TIMESTAMPTZ,
-    downtime_minutes        INTEGER,
-    CONSTRAINT pk_maintenance_requests PRIMARY KEY (request_id)
+COMMENT ON TABLE observability.slo_definition IS
+    'SLO definitions: availability (99.5%), p95 latency (<=3s), SSE connection count, SLA breach rate, EKS resource utilisation.';
+
+-- -----------------------------------------------------------------------
+-- slo_evaluation
+-- Periodic snapshots of SLO burn-rate and error-budget, written by the
+-- Prometheus recording-rule evaluation job (via a sidecar writer).
+-- -----------------------------------------------------------------------
+CREATE TABLE observability.slo_evaluation (
+    id                        UUID        NOT NULL DEFAULT uuid_generate_v4(),
+    slo_id                    TEXT        NOT NULL,
+    evaluated_at              TIMESTAMPTZ NOT NULL DEFAULT now(),
+    current_burn_rate         NUMERIC(10,6) NOT NULL,
+    error_budget_remaining_pct NUMERIC(6,3) NOT NULL,
+    status                    TEXT        NOT NULL CHECK (status IN ('ok','warning','critical')),
+    created_at                TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at                TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CONSTRAINT pk_slo_evaluation PRIMARY KEY (id),
+    CONSTRAINT fk_slo_eval_definition FOREIGN KEY (slo_id)
+        REFERENCES observability.slo_definition (id) ON DELETE CASCADE
 );
 
-CREATE INDEX idx_mr_machine_id ON maintenance_requests (machine_id);
-CREATE INDEX idx_mr_submitted_by ON maintenance_requests (submitted_by_user_id);
-CREATE INDEX idx_mr_assigned_to ON maintenance_requests (assigned_to_user_id) WHERE assigned_to_user_id IS NOT NULL;
-CREATE INDEX idx_mr_status ON maintenance_requests (status);
-CREATE INDEX idx_mr_priority_created ON maintenance_requests (priority, created_at ASC) WHERE status = 'Open';
-CREATE INDEX idx_mr_created_at ON maintenance_requests (created_at);
-CREATE INDEX idx_mr_resolved_at ON maintenance_requests (resolved_at) WHERE resolved_at IS NOT NULL;
-CREATE INDEX idx_mr_sla_target ON maintenance_requests (sla_target_at) WHERE status <> 'Resolved';
-CREATE INDEX idx_mr_machine_resolved ON maintenance_requests (machine_id, resolved_at DESC) WHERE status = 'Resolved';
+CREATE INDEX idx_slo_evaluation_slo_id       ON observability.slo_evaluation (slo_id);
+CREATE INDEX idx_slo_evaluation_evaluated_at ON observability.slo_evaluation (evaluated_at DESC);
+CREATE INDEX idx_slo_evaluation_status       ON observability.slo_evaluation (status);
 
--- ------------------------------------------------------------
--- request_comments
--- Classification: internal
--- Append-only; no UPDATE or DELETE grants issued.
--- ------------------------------------------------------------
-CREATE TABLE request_comments (
-    comment_id      UUID        NOT NULL DEFAULT uuid_generate_v4(),
-    request_id      UUID        NOT NULL REFERENCES maintenance_requests (request_id),
-    author_user_id  UUID        NOT NULL REFERENCES users (user_id),
-    author_role     TEXT        NOT NULL CHECK (author_role IN ('Operator','Technician','Supervisor')),
-    comment_text    TEXT        NOT NULL CHECK (char_length(comment_text) > 0),
-    created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
-    CONSTRAINT pk_request_comments PRIMARY KEY (comment_id)
+COMMENT ON TABLE observability.slo_evaluation IS
+    'Time-series snapshots of SLO health. Retention: 90 days; older rows purged by scheduled job.';
+
+-- -----------------------------------------------------------------------
+-- scrape_target_state
+-- Latest known UP/DOWN state for each Prometheus scrape target,
+-- upserted on every scrape cycle by the Prometheus federation sidecar.
+-- -----------------------------------------------------------------------
+CREATE TABLE observability.scrape_target_state (
+    id            UUID        NOT NULL DEFAULT uuid_generate_v4(),
+    job           TEXT        NOT NULL,
+    instance      TEXT        NOT NULL,
+    state         TEXT        NOT NULL CHECK (state IN ('up','down','unknown')),
+    last_scrape   TIMESTAMPTZ,
+    last_error    TEXT,
+    labels        JSONB       NOT NULL DEFAULT '{}',
+    created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CONSTRAINT pk_scrape_target_state PRIMARY KEY (id),
+    CONSTRAINT uq_scrape_target_job_instance UNIQUE (job, instance)
 );
 
-CREATE INDEX idx_rc_request_id ON request_comments (request_id, created_at ASC);
-CREATE INDEX idx_rc_author ON request_comments (author_user_id);
+CREATE INDEX idx_scrape_target_state_state ON observability.scrape_target_state (state);
+CREATE INDEX idx_scrape_target_state_job   ON observability.scrape_target_state (job);
 
--- ------------------------------------------------------------
--- audit_events
--- Classification: confidential
--- INSERT-only; no UPDATE or DELETE grants issued.
--- Retention: 90 days operational in CloudWatch; 7 years in S3.
--- ------------------------------------------------------------
-CREATE TABLE audit_events (
-    event_id        UUID        NOT NULL DEFAULT uuid_generate_v4(),
-    request_id      UUID        REFERENCES maintenance_requests (request_id),
-    actor_user_id   UUID        NOT NULL REFERENCES users (user_id),
-    action          TEXT        NOT NULL,
-    outcome         TEXT        NOT NULL CHECK (outcome IN ('success','failure')),
-    metadata        JSONB,
-    occurred_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
-    created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
-    CONSTRAINT pk_audit_events PRIMARY KEY (event_id)
+COMMENT ON TABLE observability.scrape_target_state IS
+    'Latest scrape health for fixit-spring-boot-api Micrometer endpoint and Keycloak metrics endpoint.';
+
+-- -----------------------------------------------------------------------
+-- dashboard_metadata
+-- Mirrors Grafana dashboard UIDs and titles for the API metadata endpoint.
+-- Kept in sync by a Grafana provisioning sidecar on startup.
+-- -----------------------------------------------------------------------
+CREATE TABLE observability.dashboard_metadata (
+    id          TEXT        NOT NULL,
+    uid         TEXT        NOT NULL,
+    title       TEXT        NOT NULL,
+    url         TEXT        NOT NULL,
+    tags        JSONB       NOT NULL DEFAULT '[]',
+    panel_json  JSONB       NOT NULL DEFAULT '[]',
+    variables   JSONB       NOT NULL DEFAULT '[]',
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CONSTRAINT pk_dashboard_metadata PRIMARY KEY (id),
+    CONSTRAINT uq_dashboard_metadata_uid UNIQUE (uid)
 );
 
-CREATE INDEX idx_ae_request_id ON audit_events (request_id) WHERE request_id IS NOT NULL;
-CREATE INDEX idx_ae_actor ON audit_events (actor_user_id);
-CREATE INDEX idx_ae_occurred_at ON audit_events (occurred_at);
-CREATE INDEX idx_ae_action ON audit_events (action);
+CREATE INDEX idx_dashboard_metadata_title_trgm ON observability.dashboard_metadata USING gin (title gin_trgm_ops);
+CREATE INDEX idx_dashboard_metadata_tags       ON observability.dashboard_metadata USING gin (tags);

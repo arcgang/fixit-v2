@@ -1,7 +1,7 @@
 # aws-secrets-manager
 
-**Technology:** AWS Secrets Manager, AWS KMS
+**Technology:** AWS Secrets Manager, AWS IAM IRSA, AWS KMS
 
 **LLD component:** `cmp:aws-secrets-manager`
 
-Enterprise secret store — holds Aurora DB credentials, Keycloak OIDC client secret, SMTP credentials (Phase 2). Automatic rotation. No hardcoded secrets.
+Centralised secrets store for Aurora connection string, Keycloak client secret, and Phase 2 SMTP credentials. Automatic rotation ≤90 days. Accessed by Spring Boot API and Keycloak via IRSA (no static credentials).

@@ -1,28 +1,37 @@
-.PHONY: help install test install-fixit-web-frontend test-fixit-web-frontend dev-fixit-web-frontend install-fixit-api-service test-fixit-api-service dev-fixit-api-service up down logs ps db-wait db-schema seed db-reset
+.PHONY: help install test install-fixit-react-spa test-fixit-react-spa dev-fixit-react-spa install-fixit-spring-boot-api test-fixit-spring-boot-api dev-fixit-spring-boot-api install-prometheus-grafana test-prometheus-grafana dev-prometheus-grafana up down logs ps db-wait db-schema seed db-reset
 # Generated from the repository plan. `make help` lists the targets.
 .DEFAULT_GOAL := help
 
-install-fixit-web-frontend: ## install fixit-web-frontend
-	cd apps/fixit-web-frontend && npm ci
+install-fixit-react-spa: ## install fixit-react-spa
+	cd apps/fixit-react-spa && npm ci
 
-test-fixit-web-frontend: ## test fixit-web-frontend
-	cd apps/fixit-web-frontend && npm test
+test-fixit-react-spa: ## test fixit-react-spa
+	cd apps/fixit-react-spa && npm test
 
-dev-fixit-web-frontend: ## run fixit-web-frontend locally
-	cd apps/fixit-web-frontend && npm run dev
+dev-fixit-react-spa: ## run fixit-react-spa locally
+	cd apps/fixit-react-spa && npm run dev
 
-install-fixit-api-service: ## install fixit-api-service
-	cd services/fixit-api-service && mvn -q -DskipTests package
+install-fixit-spring-boot-api: ## install fixit-spring-boot-api
+	cd services/fixit-spring-boot-api && mvn -q -DskipTests package
 
-test-fixit-api-service: ## test fixit-api-service
-	cd services/fixit-api-service && mvn -q test
+test-fixit-spring-boot-api: ## test fixit-spring-boot-api
+	cd services/fixit-spring-boot-api && mvn -q test
 
-dev-fixit-api-service: ## run fixit-api-service locally
-	cd services/fixit-api-service && mvn spring-boot:run
+dev-fixit-spring-boot-api: ## run fixit-spring-boot-api locally
+	cd services/fixit-spring-boot-api && mvn spring-boot:run
 
-install: install-fixit-web-frontend install-fixit-api-service ## install every component
+install-prometheus-grafana: ## install prometheus-grafana
+	cd services/prometheus-grafana && mvn -q -DskipTests package
 
-test: test-fixit-web-frontend test-fixit-api-service ## test every component
+test-prometheus-grafana: ## test prometheus-grafana
+	cd services/prometheus-grafana && mvn -q test
+
+dev-prometheus-grafana: ## run prometheus-grafana locally
+	cd services/prometheus-grafana && mvn spring-boot:run
+
+install: install-fixit-react-spa install-fixit-spring-boot-api install-prometheus-grafana ## install every component
+
+test: test-fixit-react-spa test-fixit-spring-boot-api test-prometheus-grafana ## test every component
 
 up: ## start the local platform (containers)
 	[ -f .env ] || cp .env.example .env
