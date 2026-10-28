@@ -102,6 +102,42 @@
         "SystemConfigListResponse"
       ],
       "importHint": "import com.example.contract.<Name>;  (client: com.example.contract.client.*)"
+    },
+    {
+      "root": "services/fixit-spring-boot-api",
+      "kind": "java",
+      "path": "services/fixit-spring-boot-api/src/main/java/com/example/contract",
+      "names": [
+        "CommentListResponse",
+        "CreateCommentBody",
+        "CreateMachineBody",
+        "CreateRequestBody",
+        "CursorPage",
+        "DashboardResponse",
+        "DeactivationWarning",
+        "DowntimeReportResponse",
+        "DowntimeReportRow",
+        "ErrorBody",
+        "ExportDowntimeSummaryResponse",
+        "ExportRequestsResponse",
+        "Machine",
+        "MachineHistoryResponse",
+        "MachineListResponse",
+        "MaintenanceRequest",
+        "PatchMachineBody",
+        "PatchRequestStatusBody",
+        "Priority",
+        "PutConfigBody",
+        "RequestComment",
+        "RequestListResponse",
+        "RequestStatus",
+        "SlaOutcome",
+        "SlaStatus",
+        "SseEvent",
+        "SystemConfig",
+        "SystemConfigListResponse"
+      ],
+      "importHint": "import com.example.contract.<Name>;  (client: com.example.contract.client.*)"
     }
   ]
 }
