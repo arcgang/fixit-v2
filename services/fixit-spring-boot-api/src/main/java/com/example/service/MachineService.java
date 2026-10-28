@@ -5,7 +5,6 @@ import com.example.contract.Machine;
 import com.example.contract.MachineListResponse;
 import com.example.domain.MachineEntity;
 import com.example.domain.MachineRepository;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
@@ -27,22 +26,26 @@ public class MachineService {
     }
 
     @Transactional(readOnly = true)
-    public MachineListResponse listMachines(boolean activeOnly, int limit) {
+    public MachineListResponse listMachines(boolean activeOnly, int limit, String cursor) {
         int effectiveLimit = Math.min(limit, MAX_LIMIT);
-        PageRequest pageRequest = PageRequest.of(0, effectiveLimit, Sort.by("name").ascending());
+        // Sort by machineId for a stable keyset; cursor is the last machineId from the previous page.
+        PageRequest pageRequest = PageRequest.of(0, effectiveLimit, Sort.by("machineId").ascending());
 
-        Page<MachineEntity> page;
+        UUID cursorId = cursor != null ? UUID.fromString(cursor) : null;
+
+        List<MachineEntity> rows;
         if (activeOnly) {
-            page = machineRepository.findByIsActiveTrue(pageRequest);
+            rows = cursorId != null
+                    ? machineRepository.findByIsActiveTrueAndMachineIdGreaterThan(cursorId, pageRequest)
+                    : machineRepository.findByIsActiveTrue(pageRequest).getContent();
         } else {
-            page = machineRepository.findAll(pageRequest);
+            rows = cursorId != null
+                    ? machineRepository.findByMachineIdGreaterThan(cursorId, pageRequest)
+                    : machineRepository.findAll(pageRequest).getContent();
         }
 
-        List<Machine> data = page.getContent().stream()
-                .map(this::toDto)
-                .toList();
-
-        String nextCursor = page.hasNext() ? page.getContent().getLast().getMachineId().toString() : null;
+        List<Machine> data = rows.stream().map(this::toDto).toList();
+        String nextCursor = rows.size() == effectiveLimit ? rows.getLast().getMachineId().toString() : null;
         return new MachineListResponse(data, new CursorPage((long) effectiveLimit, nextCursor));
     }
 

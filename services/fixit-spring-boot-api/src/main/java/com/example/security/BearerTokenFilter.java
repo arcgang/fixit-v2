@@ -17,15 +17,17 @@ import java.util.UUID;
  * Extracts the caller identity from the Authorization header.
  *
  * In production this filter would verify a signed JWT from Keycloak.
- * The test profile configures a passthrough token ("test-*-token") that sets a synthetic
- * principal so controller slice tests can exercise RBAC without a running Keycloak instance.
- * The FIXIT_JWT_VERIFY env var gates real verification; when absent the filter falls back to
- * the synthetic path so integration tests pass without additional config.
+ * Synthetic test tokens ("test-*-token") are accepted ONLY when the FIXIT_JWT_VERIFY
+ * environment variable is absent; when it is set the synthetic path is skipped entirely
+ * so these tokens cannot be used in a deployed environment.
  */
 public class BearerTokenFilter extends OncePerRequestFilter {
 
     private static final UUID TEST_OPERATOR_ID = UUID.fromString("00000000-0000-0000-0000-000000000001");
     private static final UUID TEST_SUPERVISOR_ID = UUID.fromString("00000000-0000-0000-0000-000000000002");
+
+    private static final boolean SYNTHETIC_TOKENS_ENABLED =
+            System.getenv("FIXIT_JWT_VERIFY") == null;
 
     @Override
     protected void doFilterInternal(
@@ -51,7 +53,9 @@ public class BearerTokenFilter extends OncePerRequestFilter {
     }
 
     private CallerPrincipal resolvePrincipal(String token) {
-        // Synthetic test tokens — never accepted in production (blocked by env guard in SecurityConfig)
+        if (!SYNTHETIC_TOKENS_ENABLED) {
+            return null;
+        }
         if ("test-operator-token".equals(token)) {
             return new CallerPrincipal(TEST_OPERATOR_ID, "Test Operator", CallerPrincipal.ROLE_OPERATOR);
         }

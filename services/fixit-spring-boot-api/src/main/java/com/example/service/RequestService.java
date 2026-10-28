@@ -3,8 +3,10 @@ package com.example.service;
 import com.example.contract.*;
 import com.example.domain.*;
 import com.example.exception.MachineNotFoundOrInactiveException;
+import jakarta.persistence.EntityManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -20,16 +22,19 @@ public class RequestService {
     private final MaintenanceRequestRepository requestRepository;
     private final SlaRecordRepository slaRecordRepository;
     private final ReferenceNumberGenerator referenceNumberGenerator;
+    private final EntityManager entityManager;
 
     public RequestService(
             final MachineRepository machineRepository,
             final MaintenanceRequestRepository requestRepository,
             final SlaRecordRepository slaRecordRepository,
-            final ReferenceNumberGenerator referenceNumberGenerator) {
+            final ReferenceNumberGenerator referenceNumberGenerator,
+            final EntityManager entityManager) {
         this.machineRepository = machineRepository;
         this.requestRepository = requestRepository;
         this.slaRecordRepository = slaRecordRepository;
         this.referenceNumberGenerator = referenceNumberGenerator;
+        this.entityManager = entityManager;
     }
 
     @Transactional
@@ -57,9 +62,34 @@ public class RequestService {
         request.setUpdatedAt(now);
         request.setSlaDeadlineAt(slaDeadline);
         request.setOutOfHoursFlag(false);
-        request.setReferenceNumber(referenceNumberGenerator.generate(now));
 
-        request = requestRepository.save(request);
+        // Retry on unique-constraint collision (TOCTOU: two concurrent requests on the same day
+        // may generate the same reference number before either is committed).
+        DataIntegrityViolationException lastViolation = null;
+        for (int attempt = 0; attempt < 5; attempt++) {
+            request.setReferenceNumber(referenceNumberGenerator.generate(now));
+            try {
+                request = requestRepository.save(request);
+                requestRepository.flush();
+                lastViolation = null;
+                break;
+            } catch (DataIntegrityViolationException e) {
+                lastViolation = e;
+                entityManager.clear();
+                request = new MaintenanceRequestEntity();
+                request.setMachineId(machine.getMachineId());
+                request.setDescription(body.description());
+                request.setPriority(body.priority());
+                request.setStatus(RequestStatus.OPEN);
+                request.setCreatedByUserId(callerUserId);
+                request.setCreatedByDisplayName(callerDisplayName);
+                request.setCreatedAt(now);
+                request.setUpdatedAt(now);
+                request.setSlaDeadlineAt(slaDeadline);
+                request.setOutOfHoursFlag(false);
+            }
+        }
+        if (lastViolation != null) throw lastViolation;
 
         SlaRecordEntity slaRecord = new SlaRecordEntity();
         slaRecord.setRequestId(request.getRequestId());

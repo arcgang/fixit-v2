@@ -37,21 +37,23 @@ class MachineControllerTest {
     private MachineEntity activeMachine;
     private MachineEntity inactiveMachine;
 
+    private static final Instant FAR_PAST = Instant.now().minusSeconds(365 * 24 * 3600L);
+
     @BeforeEach
     void setUp() {
         activeMachine = new MachineEntity();
         activeMachine.setName("Lathe A");
         activeMachine.setIsActive(true);
-        activeMachine.setCreatedAt(Instant.parse("2026-01-01T00:00:00Z"));
-        activeMachine.setUpdatedAt(Instant.parse("2026-01-01T00:00:00Z"));
+        activeMachine.setCreatedAt(FAR_PAST);
+        activeMachine.setUpdatedAt(FAR_PAST);
         machineRepository.save(activeMachine);
 
         inactiveMachine = new MachineEntity();
         inactiveMachine.setName("Press B");
         inactiveMachine.setIsActive(false);
-        inactiveMachine.setCreatedAt(Instant.parse("2026-01-01T00:00:00Z"));
-        inactiveMachine.setUpdatedAt(Instant.parse("2026-01-01T00:00:00Z"));
-        inactiveMachine.setDeactivatedAt(Instant.parse("2026-06-01T00:00:00Z"));
+        inactiveMachine.setCreatedAt(FAR_PAST);
+        inactiveMachine.setUpdatedAt(FAR_PAST);
+        inactiveMachine.setDeactivatedAt(FAR_PAST.plusSeconds(180 * 24 * 3600L));
         machineRepository.save(inactiveMachine);
     }
 

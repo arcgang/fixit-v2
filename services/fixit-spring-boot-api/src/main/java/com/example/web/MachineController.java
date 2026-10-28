@@ -21,7 +21,8 @@ public class MachineController {
     @GetMapping
     public ResponseEntity<MachineListResponse> listMachines(
             @RequestParam(defaultValue = "true") boolean activeOnly,
-            @RequestParam(defaultValue = "50") int limit) {
-        return ResponseEntity.ok(machineService.listMachines(activeOnly, limit));
+            @RequestParam(defaultValue = "50") int limit,
+            @RequestParam(required = false) String cursor) {
+        return ResponseEntity.ok(machineService.listMachines(activeOnly, limit, cursor));
     }
 }
