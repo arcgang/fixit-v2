@@ -4,18 +4,14 @@ FixIt v2 — every component of the architecture
 
 | Component | Path | Technology | Seed |
 |---|---|---|---|
-| fixit-web-frontend | `apps/fixit-web-frontend` | React 18, TypeScript, Nginx, EKS Pod | React |
-| fixit-api-service | `services/fixit-api-service` | Java 21, Spring Boot 3, Spring Security, EKS Pod | Java (Spring Boot) |
-| aws-alb | `services/aws-alb` | AWS ALB, AWS Certificate Manager | blank |
-| smtp-relay-phase2 | `services/smtp-relay-phase2` | SMTP-TLS (STARTTLS port 587) or Webhook (HTTPS) | blank |
-| aws-api-gateway | `platform/aws-api-gateway` | AWS API Gateway HTTP API, JWT Authoriser | blank |
-| keycloak-oidc-idp | `platform/keycloak-oidc-idp` | Keycloak 24+, OIDC, SAML 2.0, EKS Pod (HA) | blank |
-| amazon-aurora-postgresql | `platform/amazon-aurora-postgresql` | Amazon Aurora PostgreSQL 15, Multi-AZ, AWS KMS CMK | blank |
-| aws-secrets-manager | `platform/aws-secrets-manager` | AWS Secrets Manager, AWS KMS | blank |
-| aws-cloudwatch-logs | `platform/aws-cloudwatch-logs` | AWS CloudWatch Logs, Amazon S3 (archival), AWS KMS | blank |
-| prometheus-grafana | `platform/prometheus-grafana` | Prometheus, Grafana, EKS (cluster-internal) | blank |
-| aws-kms | `platform/aws-kms` | AWS KMS | blank |
-| amazon-s3 | `platform/amazon-s3` | Amazon S3, S3 Lifecycle Rules, AWS KMS | blank |
+| fixit-react-spa | `apps/fixit-react-spa` | React 18, TypeScript, Vite, AWS CloudFront, Amazon S3 | React |
+| fixit-spring-boot-api | `services/fixit-spring-boot-api` | Java 21, Spring Boot 3.x, Spring Security, Spring Data JPA, Micrometer, Flyway | Java (Spring Boot) |
+| keycloak-idp | `services/keycloak-idp` | Keycloak 24.x, PostgreSQL (Aurora — keycloak schema), Kubernetes (EKS) | blank |
+| prometheus-grafana | `services/prometheus-grafana` | Prometheus 2.x, Grafana 10.x, Micrometer (Spring Boot), Amazon CloudWatch Metrics, Amazon SNS | Java (Spring Boot) |
+| aws-api-gateway | `platform/aws-api-gateway` | AWS API Gateway HTTP API, JWT Authoriser, AWS WAF (via CloudFront) | blank |
+| aurora-postgresql | `platform/aurora-postgresql` | Amazon Aurora PostgreSQL 15, AWS KMS CMK (fixit-aurora-cmk), Cross-region read replica (eu-central-1) | blank |
+| aws-secrets-manager | `platform/aws-secrets-manager` | AWS Secrets Manager, AWS IAM IRSA, AWS KMS | blank |
+| cloudwatch-logs | `platform/cloudwatch-logs` | Amazon CloudWatch Logs, Amazon S3 (log archive), AWS Glacier, AWS KMS SSE-KMS | blank |
 
 Part of the **fixit-v2** estate (mono layout). Contracts: `contracts/` in this repository.
 

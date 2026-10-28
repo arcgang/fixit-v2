@@ -1,4 +1,4 @@
-# aws-secrets-manager — AWS Secrets Manager, AWS KMS
+# aws-secrets-manager — AWS Secrets Manager, AWS IAM IRSA, AWS KMS
 # LLD component cmp:aws-secrets-manager. Provision and configure it here; nothing in this module is applied
 # until a pull request adds the provider resources and the plan is reviewed.
 

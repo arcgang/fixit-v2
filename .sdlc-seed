@@ -1,2 +1,4 @@
 react 6
 apps/fixit-web-frontend react
+apps/fixit-react-spa react
+services/prometheus-grafana java-springboot

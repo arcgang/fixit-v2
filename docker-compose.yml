@@ -1,11 +1,6 @@
 # Generated from the repository plan: local stand-ins for the platform components.
 name: local
 services:
-  oidc:
-    image: ghcr.io/navikt/mock-oauth2-server:2.1.10
-    ports:
-      - ${OIDC_PORT:-8090}:8080
-    restart: unless-stopped
   postgres:
     image: postgres:16
     ports:
@@ -24,10 +19,4 @@ services:
     command:
       - server
       - /data
-    restart: unless-stopped
-  otel-lgtm:
-    image: grafana/otel-lgtm:latest
-    ports:
-      - ${GRAFANA_PORT:-3001}:3000
-      - ${OTLP_PORT:-4318}:4318
     restart: unless-stopped

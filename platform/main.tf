@@ -3,13 +3,8 @@ module "aws_api_gateway" {
   environment = var.environment
 }
 
-module "keycloak_oidc_idp" {
-  source      = "./keycloak-oidc-idp"
-  environment = var.environment
-}
-
-module "amazon_aurora_postgresql" {
-  source      = "./amazon-aurora-postgresql"
+module "aurora_postgresql" {
+  source      = "./aurora-postgresql"
   environment = var.environment
 }
 
@@ -18,22 +13,7 @@ module "aws_secrets_manager" {
   environment = var.environment
 }
 
-module "aws_cloudwatch_logs" {
-  source      = "./aws-cloudwatch-logs"
-  environment = var.environment
-}
-
-module "prometheus_grafana" {
-  source      = "./prometheus-grafana"
-  environment = var.environment
-}
-
-module "aws_kms" {
-  source      = "./aws-kms"
-  environment = var.environment
-}
-
-module "amazon_s3" {
-  source      = "./amazon-s3"
+module "cloudwatch_logs" {
+  source      = "./cloudwatch-logs"
   environment = var.environment
 }
