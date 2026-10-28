@@ -67,13 +67,6 @@ resource "keycloak_realm" "fixit" {
   enabled                  = true
   ssl_required             = "external"
   internationalization_enabled = false
-
-  # Bind the custom browser flow using the literal alias string so that Terraform
-  # does not register a reverse dependency from realm → flow (which would create a
-  # cycle: flow.realm_id → realm, realm.browser_flow → flow). The literal breaks
-  # the cycle while still wiring the correct value; Terraform applies the realm
-  # update on the same run once the flow exists.
-  browser_flow = "fixit-browser"
 }
 
 # ---------------------------------------------------------------------------
@@ -130,19 +123,19 @@ resource "keycloak_openid_client" "fixit_spa" {
 #     identity-provider-redirector   ALTERNATIVE  — org IdP redirect
 #     username-password-form         REQUIRED     — credential step
 #     fixit-role-check (CONDITIONAL) CONDITIONAL  — deny users with no FixIt role
-#       role-condition-operator      DISABLED     — negate: user does NOT have fixit-operator
-#       role-condition-technician    DISABLED     — negate: user does NOT have fixit-technician
-#       role-condition-supervisor    DISABLED     — negate: user does NOT have fixit-supervisor
+#       role-condition-operator      REQUIRED     — negate: user does NOT have fixit-operator
+#       role-condition-technician    REQUIRED     — negate: user does NOT have fixit-technician
+#       role-condition-supervisor    REQUIRED     — negate: user does NOT have fixit-supervisor
 #       deny-no-role                 REQUIRED     — deny access when all three conditions hold
 #     fixit-mfa (sub-flow)           REQUIRED     — at least one second factor required
 #       totp                         ALTERNATIVE  — TOTP (authenticator app)
 #       webauthn                     ALTERNATIVE  — WebAuthn (hardware key / platform)
 #
-# Role-check logic: each conditional-user-role execution is negated (negate=true),
-# so it evaluates to TRUE when the user does NOT have that role. All three conditions
-# are DISABLED meaning they are each evaluated independently — the CONDITIONAL flow
-# fires the deny step when each condition in the sub-flow evaluates to TRUE (AND
-# semantics). This ensures deny fires only when the user has none of the three roles.
+# Role-check logic: each conditional-user-role execution uses negate=true and
+# requirement=REQUIRED. Keycloak evaluates all REQUIRED conditions in the CONDITIONAL
+# sub-flow; the sub-flow's body (deny-no-role) fires only when every condition
+# returns TRUE (AND semantics). A condition returns TRUE when the user does NOT have
+# the named role (negate=true). So deny fires only when the user lacks all three roles.
 
 resource "keycloak_authentication_flow" "fixit_browser" {
   realm_id    = keycloak_realm.fixit.id
@@ -194,7 +187,7 @@ resource "keycloak_authentication_execution" "role_condition_operator" {
   realm_id          = keycloak_realm.fixit.id
   parent_flow_alias = keycloak_authentication_subflow.role_check.alias
   authenticator     = "conditional-user-role"
-  requirement       = "DISABLED"
+  requirement       = "REQUIRED"
 }
 
 resource "keycloak_authentication_execution_config" "role_condition_operator" {
@@ -211,7 +204,7 @@ resource "keycloak_authentication_execution" "role_condition_technician" {
   realm_id          = keycloak_realm.fixit.id
   parent_flow_alias = keycloak_authentication_subflow.role_check.alias
   authenticator     = "conditional-user-role"
-  requirement       = "DISABLED"
+  requirement       = "REQUIRED"
 
   depends_on = [keycloak_authentication_execution.role_condition_operator]
 }
@@ -230,7 +223,7 @@ resource "keycloak_authentication_execution" "role_condition_supervisor" {
   realm_id          = keycloak_realm.fixit.id
   parent_flow_alias = keycloak_authentication_subflow.role_check.alias
   authenticator     = "conditional-user-role"
-  requirement       = "DISABLED"
+  requirement       = "REQUIRED"
 
   depends_on = [keycloak_authentication_execution.role_condition_technician]
 }
@@ -254,7 +247,8 @@ resource "keycloak_authentication_execution" "deny_no_role" {
   depends_on = [keycloak_authentication_execution.role_condition_supervisor]
 }
 
-# MFA sub-flow — both TOTP and WebAuthn offered as ALTERNATIVE (user's choice)
+# MFA sub-flow — TOTP and WebAuthn offered as ALTERNATIVE (user's choice);
+# MFA setup sub-flow ensures new users are prompted to enroll before first use.
 
 resource "keycloak_authentication_subflow" "mfa" {
   realm_id          = keycloak_realm.fixit.id
@@ -266,11 +260,41 @@ resource "keycloak_authentication_subflow" "mfa" {
   depends_on = [keycloak_authentication_subflow.role_check]
 }
 
+# MFA setup: prompt users with no MFA credential to enroll on first login.
+
+resource "keycloak_authentication_subflow" "mfa_setup" {
+  realm_id          = keycloak_realm.fixit.id
+  parent_flow_alias = keycloak_authentication_subflow.mfa.alias
+  alias             = "fixit-mfa-setup"
+  provider_id       = "basic-flow"
+  requirement       = "CONDITIONAL"
+}
+
+resource "keycloak_authentication_execution" "mfa_setup_condition" {
+  realm_id          = keycloak_realm.fixit.id
+  parent_flow_alias = keycloak_authentication_subflow.mfa_setup.alias
+  authenticator     = "conditional-user-configured"
+  requirement       = "REQUIRED"
+}
+
+resource "keycloak_authentication_execution" "webauthn_setup" {
+  realm_id          = keycloak_realm.fixit.id
+  parent_flow_alias = keycloak_authentication_subflow.mfa_setup.alias
+  authenticator     = "webauthn-register"
+  requirement       = "REQUIRED"
+
+  depends_on = [keycloak_authentication_execution.mfa_setup_condition]
+}
+
+# MFA challenge: users with credentials choose TOTP or WebAuthn.
+
 resource "keycloak_authentication_execution" "totp" {
   realm_id          = keycloak_realm.fixit.id
   parent_flow_alias = keycloak_authentication_subflow.mfa.alias
   authenticator     = "auth-otp-form"
   requirement       = "ALTERNATIVE"
+
+  depends_on = [keycloak_authentication_subflow.mfa_setup]
 }
 
 resource "keycloak_authentication_execution" "webauthn" {
@@ -280,6 +304,46 @@ resource "keycloak_authentication_execution" "webauthn" {
   requirement       = "ALTERNATIVE"
 
   depends_on = [keycloak_authentication_execution.totp]
+}
+
+# ---------------------------------------------------------------------------
+# Bind the custom browser flow to the realm after the flow exists.
+#
+# keycloak_realm is created before keycloak_authentication_flow (the flow
+# references realm.id, so a direct depends_on would create a cycle). The
+# flow alias must exist in Keycloak before the realm update that sets
+# browserFlow can succeed. We therefore decouple creation from binding:
+# the realm is created without browser_flow, and this resource patches it
+# via the Keycloak admin REST API once the flow and all its executions are
+# in place. Run `terraform apply` once; a second apply is a no-op.
+# ---------------------------------------------------------------------------
+
+resource "terraform_data" "bind_browser_flow" {
+  # Triggers re-run if the flow alias changes.
+  input = keycloak_authentication_flow.fixit_browser.alias
+
+  depends_on = [
+    keycloak_authentication_flow.fixit_browser,
+    keycloak_authentication_execution.webauthn,
+    keycloak_authentication_execution.deny_no_role,
+  ]
+
+  provisioner "local-exec" {
+    command = <<-EOT
+      TOKEN=$(curl -sf \
+        -d "client_id=admin-cli" \
+        -d "username=${local.keycloak_admin["username"]}" \
+        -d "password=${local.keycloak_admin["password"]}" \
+        -d "grant_type=password" \
+        "https://auth.fixit.fixcorp.internal/realms/master/protocol/openid-connect/token" \
+        | tr ',' '\n' | grep '"access_token"' | cut -d'"' -f4)
+      curl -sf -X PUT \
+        -H "Authorization: Bearer $TOKEN" \
+        -H "Content-Type: application/json" \
+        -d '{"browserFlow":"fixit-browser"}' \
+        "https://auth.fixit.fixcorp.internal/admin/realms/fixit"
+    EOT
+  }
 }
 
 # ---------------------------------------------------------------------------

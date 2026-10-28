@@ -153,12 +153,16 @@ run "spa_client_redirect_and_web_origin_match_cloudfront_url" {
 # ---------------------------------------------------------------------------
 
 # --- Precondition: top-level browser flow must exist and be bound to the realm ---
+# browser_flow is set via terraform_data.bind_browser_flow after the flow exists
+# (setting it directly on the realm causes a fresh-apply failure because Keycloak
+# rejects an unknown browserFlow alias in the realm creation POST). The terraform_data
+# resource stores the target alias as its input; we assert that here.
 run "browser_flow_bound_to_realm" {
   command = plan
 
   assert {
-    condition     = keycloak_realm.fixit.browser_flow == "fixit-browser"
-    error_message = "keycloak_realm.fixit browser_flow must be set to \"fixit-browser\""
+    condition     = terraform_data.bind_browser_flow.input == "fixit-browser"
+    error_message = "terraform_data.bind_browser_flow must target the \"fixit-browser\" flow alias"
   }
 }
 
@@ -285,7 +289,7 @@ run "role_check_deny_execution_blocks_users_without_role" {
   }
 }
 
-# --- Role condition executions: one per FixIt role, all DISABLED so deny fires when NONE match ---
+# --- Role condition executions: one per FixIt role, all REQUIRED so deny fires when NONE match ---
 run "role_condition_operator_targets_fixit_operator" {
   command = plan
 
@@ -297,6 +301,11 @@ run "role_condition_operator_targets_fixit_operator" {
   assert {
     condition     = keycloak_authentication_execution.role_condition_operator.parent_flow_alias == keycloak_authentication_subflow.role_check.alias
     error_message = "role_condition_operator must be in the role_check sub-flow"
+  }
+
+  assert {
+    condition     = keycloak_authentication_execution.role_condition_operator.requirement == "REQUIRED"
+    error_message = "role_condition_operator must be REQUIRED so it is evaluated (not skipped)"
   }
 }
 
@@ -312,6 +321,11 @@ run "role_condition_technician_targets_fixit_technician" {
     condition     = keycloak_authentication_execution.role_condition_technician.parent_flow_alias == keycloak_authentication_subflow.role_check.alias
     error_message = "role_condition_technician must be in the role_check sub-flow"
   }
+
+  assert {
+    condition     = keycloak_authentication_execution.role_condition_technician.requirement == "REQUIRED"
+    error_message = "role_condition_technician must be REQUIRED so it is evaluated (not skipped)"
+  }
 }
 
 run "role_condition_supervisor_targets_fixit_supervisor" {
@@ -325,6 +339,11 @@ run "role_condition_supervisor_targets_fixit_supervisor" {
   assert {
     condition     = keycloak_authentication_execution.role_condition_supervisor.parent_flow_alias == keycloak_authentication_subflow.role_check.alias
     error_message = "role_condition_supervisor must be in the role_check sub-flow"
+  }
+
+  assert {
+    condition     = keycloak_authentication_execution.role_condition_supervisor.requirement == "REQUIRED"
+    error_message = "role_condition_supervisor must be REQUIRED so it is evaluated (not skipped)"
   }
 }
 
