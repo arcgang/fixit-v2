@@ -1,0 +1,15 @@
+spring:
+  application:
+    name: prometheus-grafana
+  jackson:
+    property-naming-strategy: SNAKE_CASE
+    default-property-inclusion: non_null
+server:
+  port: ${PORT:8080}
+observability:
+  prometheus:
+    url: ${PROMETHEUS_URL:http://prometheus:9090}
+  grafana:
+    url: ${GRAFANA_URL:http://grafana:3000}
+  alertmanager:
+    url: ${ALERTMANAGER_URL:http://alertmanager:9093}
